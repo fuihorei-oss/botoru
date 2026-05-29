@@ -25,6 +25,7 @@ function AmountBar({ value, unit }) {
 
 export default function BottleForm({ bottle, casts = [], onSave, onDelete, onClose }) {
   const isEdit = !!bottle;
+  const [showCastChips, setShowCastChips] = useState(false);
 
   const [form, setForm] = useState({
     name: '',
@@ -60,7 +61,7 @@ export default function BottleForm({ bottle, casts = [], onSave, onDelete, onClo
   }
 
   const inputStyle = { background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)' };
-  const activeBtn  = { background: '#7c3aed', color: 'white', border: '1px solid #7c3aed' };
+  const activeBtn   = { background: '#7c3aed', color: 'white', border: '1px solid #7c3aed' };
   const inactiveBtn = { background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.12)' };
 
   return (
@@ -78,9 +79,9 @@ export default function BottleForm({ bottle, casts = [], onSave, onDelete, onClo
 
         <form onSubmit={handleSubmit} className="px-5 pb-5 space-y-4 max-h-[80vh] overflow-y-auto">
 
-          {/* ボトル名 */}
+          {/* 銘柄 */}
           <div>
-            <label className="block text-xs text-white/60 mb-1">ボトル名 <span className="text-pink-400">*</span></label>
+            <label className="block text-xs text-white/60 mb-1">銘柄 <span className="text-pink-400">*</span></label>
             <input
               required
               value={form.name}
@@ -91,13 +92,13 @@ export default function BottleForm({ bottle, casts = [], onSave, onDelete, onClo
             />
           </div>
 
-          {/* キープ名 */}
+          {/* ネック名 */}
           <div>
-            <label className="block text-xs text-white/60 mb-1">キープ名</label>
+            <label className="block text-xs text-white/60 mb-1">ネック名</label>
             <input
               value={form.keepName}
               onChange={e => set('keepName', e.target.value)}
-              placeholder="例：田中様キープ、VIPルーム用..."
+              placeholder="例：田中様ネック、VIPルーム用..."
               className="w-full rounded-xl px-4 py-2.5 text-white placeholder-white/30 outline-none focus:ring-2 focus:ring-purple-500"
               style={inputStyle}
             />
@@ -214,38 +215,64 @@ export default function BottleForm({ bottle, casts = [], onSave, onDelete, onClo
             />
           </div>
 
-          {/* 指名の子（担当キャスト） */}
-          <div>
-            <label className="block text-xs text-white/60 mb-1">指名の子（担当キャスト）</label>
-            <input
-              value={form.castName}
-              onChange={e => set('castName', e.target.value)}
-              placeholder="さくら"
-              className="w-full rounded-xl px-4 py-2.5 text-white placeholder-white/30 outline-none focus:ring-2 focus:ring-purple-500"
-              style={inputStyle}
-            />
-            {casts.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mt-2">
-                {casts.map(name => {
-                  const cc = castColor(name);
-                  const isActive = form.castName === name;
-                  return (
-                    <button
-                      key={name}
-                      type="button"
-                      onClick={() => set('castName', isActive ? '' : name)}
-                      className="px-3 py-1 rounded-full text-sm font-bold transition-all"
-                      style={isActive
-                        ? { background: cc, color: '#0d0d1a' }
-                        : { background: 'rgba(255,255,255,0.06)', color: cc, border: `1px solid ${cc}60` }
-                      }
-                    >
-                      {name}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
+          {/* 指名の子（折りたたみ式） */}
+          <div className="rounded-xl overflow-hidden"
+            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)' }}>
+
+            {/* ヘッダー行：入力 + トグル */}
+            <div className="flex items-center gap-2 px-3 pt-3 pb-2">
+              <label className="text-xs text-white/60 flex-shrink-0">指名の子</label>
+              {form.castName && (
+                <span className="text-xs font-bold flex-shrink-0"
+                  style={{ color: castColor(form.castName) }}>
+                  {form.castName}
+                </span>
+              )}
+              {casts.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowCastChips(v => !v)}
+                  className="ml-auto text-xs px-2 py-0.5 rounded-full flex-shrink-0 transition-all"
+                  style={{ color: 'rgba(255,255,255,0.35)', background: 'rgba(255,255,255,0.06)' }}
+                >
+                  {showCastChips ? '▲ 閉じる' : '▼ 選択'}
+                </button>
+              )}
+            </div>
+
+            <div className="px-3 pb-3">
+              <input
+                value={form.castName}
+                onChange={e => set('castName', e.target.value)}
+                placeholder="さくら"
+                className="w-full rounded-xl px-4 py-2.5 text-white placeholder-white/30 outline-none focus:ring-2 focus:ring-purple-500"
+                style={inputStyle}
+              />
+
+              {/* 展開時のチップ */}
+              {showCastChips && casts.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-3">
+                  {casts.map(name => {
+                    const cc = castColor(name);
+                    const isActive = form.castName === name;
+                    return (
+                      <button
+                        key={name}
+                        type="button"
+                        onClick={() => set('castName', isActive ? '' : name)}
+                        className="px-3.5 py-1.5 rounded-full text-sm font-bold transition-all"
+                        style={isActive
+                          ? { background: cc, color: '#0d0d1a' }
+                          : { background: 'rgba(255,255,255,0.06)', color: cc, border: `1px solid ${cc}60` }
+                        }
+                      >
+                        {name}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* メモ */}

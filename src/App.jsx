@@ -172,7 +172,7 @@ export default function App() {
                 type="text"
                 value={query}
                 onChange={e => setQuery(e.target.value)}
-                placeholder="ボトル名・お客さん・メモで検索"
+                placeholder="銘柄・お客さん・メモで検索"
                 className="w-full rounded-xl pl-10 pr-10 py-2.5 text-sm outline-none"
                 style={{
                   background: 'rgba(255,255,255,0.08)',
