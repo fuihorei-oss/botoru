@@ -25,9 +25,12 @@ function PlusIcon() {
 export default function App() {
   const [bottles, setBottles] = useState(() => loadBottles());
   const [casts, setCasts] = useState(() => loadCasts());
-  const [view, setView] = useState('bottles'); // 'bottles' | 'casts'
+  const [view, setView] = useState('bottles');
   const [query, setQuery] = useState('');
   const [castFilter, setCastFilter] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [showFilter, setShowFilter] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editBottle, setEditBottle] = useState(null);
   const [sortOrder, setSortOrder] = useState('date_desc');
@@ -49,18 +52,13 @@ export default function App() {
   const filtered = useMemo(() => {
     let results = searchBottles(fuse, query, sorted);
     if (castFilter) results = results.filter(b => b.castName === castFilter);
+    if (dateFrom)   results = results.filter(b => (b.purchaseDate || '') >= dateFrom);
+    if (dateTo)     results = results.filter(b => (b.purchaseDate || '') <= dateTo);
     return results;
-  }, [fuse, query, sorted, castFilter]);
+  }, [fuse, query, sorted, castFilter, dateFrom, dateTo]);
 
-  function persistBottles(next) {
-    setBottles(next);
-    saveBottles(next);
-  }
-
-  function persistCasts(next) {
-    setCasts(next);
-    saveCasts(next);
-  }
+  function persistBottles(next) { setBottles(next); saveBottles(next); }
+  function persistCasts(next)   { setCasts(next);   saveCasts(next); }
 
   function handleSave(bottle) {
     const exists = bottles.find(b => b.id === bottle.id);
@@ -79,20 +77,9 @@ export default function App() {
     setEditBottle(null);
   }
 
-  function openAdd() {
-    setEditBottle(null);
-    setShowForm(true);
-  }
-
-  function openEdit(bottle) {
-    setEditBottle(bottle);
-    setShowForm(true);
-  }
-
-  function closeForm() {
-    setShowForm(false);
-    setEditBottle(null);
-  }
+  function openAdd()         { setEditBottle(null);   setShowForm(true); }
+  function openEdit(bottle)  { setEditBottle(bottle); setShowForm(true); }
+  function closeForm()       { setShowForm(false);    setEditBottle(null); }
 
   function addCast() {
     const name = newCastInput.trim();
@@ -106,13 +93,20 @@ export default function App() {
     if (castFilter === name) setCastFilter('');
   }
 
+  function clearFilters() {
+    setCastFilter('');
+    setDateFrom('');
+    setDateTo('');
+  }
+
   function handleSelectCast(name) {
     setCastFilter(name);
     setView('bottles');
   }
 
   const emptyCount = bottles.filter(b => (b.remainingAmount ?? 700) === 0).length;
-  const isFiltered = !!query || !!castFilter;
+  const activeFilterCount = (castFilter ? 1 : 0) + (dateFrom || dateTo ? 1 : 0);
+  const isFiltered = !!query || activeFilterCount > 0;
 
   return (
     <div className="min-h-screen flex flex-col" style={{ maxWidth: 640, margin: '0 auto' }}>
@@ -121,40 +115,31 @@ export default function App() {
       <header className="sticky top-0 z-30 pt-4 pb-3 px-4"
         style={{ background: 'linear-gradient(180deg, #0d0d1a 85%, transparent)', backdropFilter: 'blur(8px)' }}>
 
-        {/* タイトル行 + タブ + ソート */}
+        {/* タブ行 */}
         <div className="flex items-center gap-3 mb-3">
-          {/* ビュー切り替えタブ */}
           <div className="flex rounded-xl overflow-hidden flex-shrink-0"
             style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.1)' }}>
             <button
               onClick={() => setView('bottles')}
               className="px-3 py-1.5 text-sm font-bold transition-all"
-              style={view === 'bottles'
-                ? { background: '#7c3aed', color: 'white' }
-                : { color: 'rgba(255,255,255,0.45)' }
-              }
+              style={view === 'bottles' ? { background: '#7c3aed', color: 'white' } : { color: 'rgba(255,255,255,0.45)' }}
             >
               🍾 ボトル
             </button>
             <button
               onClick={() => setView('casts')}
               className="px-3 py-1.5 text-sm font-bold transition-all"
-              style={view === 'casts'
-                ? { background: '#7c3aed', color: 'white' }
-                : { color: 'rgba(255,255,255,0.45)' }
-              }
+              style={view === 'casts' ? { background: '#7c3aed', color: 'white' } : { color: 'rgba(255,255,255,0.45)' }}
             >
               👑 キャスト
             </button>
           </div>
 
-          {/* 件数 */}
           <p className="text-xs flex-1 min-w-0" style={{ color: 'rgba(255,255,255,0.4)' }}>
             全{bottles.length}本
             {emptyCount > 0 && <span style={{ color: '#f87171', marginLeft: 6 }}>空き{emptyCount}本</span>}
           </p>
 
-          {/* ソート（ボトルビューのみ） */}
           {view === 'bottles' && (
             <select
               value={sortOrder}
@@ -175,10 +160,10 @@ export default function App() {
           )}
         </div>
 
-        {/* ボトルビューのみ：検索 + 指名フィルター */}
+        {/* ボトルビュー専用のヘッダー */}
         {view === 'bottles' && (
           <>
-            {/* メイン検索バー */}
+            {/* 検索バー */}
             <div className="relative mb-2">
               <span className="absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: 'rgba(255,255,255,0.4)' }}>
                 <SearchIcon />
@@ -204,50 +189,134 @@ export default function App() {
               )}
             </div>
 
-            {/* 指名フィルター */}
-            <div className="mb-1">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-xs flex-shrink-0" style={{ color: 'rgba(255,255,255,0.35)' }}>指名：</span>
-                <button
-                  onClick={() => setCastFilter('')}
-                  className="px-2.5 py-1 rounded-full text-xs font-medium transition-all flex-shrink-0"
-                  style={!castFilter
-                    ? { background: '#7c3aed', color: 'white' }
-                    : { background: 'rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.5)', border: '1px solid rgba(255,255,255,0.12)' }
-                  }
-                >
-                  すべて
-                </button>
-                {casts.map(name => {
-                  const cc = castColor(name);
-                  const isActive = castFilter === name;
-                  return (
+            {/* フィルターパネル（折りたたみ） */}
+            <div className="rounded-xl overflow-hidden"
+              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)' }}>
+
+              {/* 折りたたみヘッダー */}
+              <button
+                onClick={() => setShowFilter(v => !v)}
+                className="w-full flex items-center gap-2 px-3 py-2.5 text-left"
+              >
+                <span className="text-xs font-medium" style={{ color: 'rgba(255,255,255,0.5)' }}>絞り込み</span>
+
+                {/* アクティブなフィルターのサマリー */}
+                {!showFilter && (
+                  <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                    {castFilter && (
+                      <span className="text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0"
+                        style={{ background: `${castColor(castFilter)}25`, color: castColor(castFilter) }}>
+                        {castFilter}
+                      </span>
+                    )}
+                    {(dateFrom || dateTo) && (
+                      <span className="text-xs px-2 py-0.5 rounded-full flex-shrink-0"
+                        style={{ background: 'rgba(124,58,237,0.25)', color: '#a78bfa' }}>
+                        📅 {dateFrom || '…'} 〜 {dateTo || '…'}
+                      </span>
+                    )}
+                    {activeFilterCount === 0 && (
+                      <span className="text-xs" style={{ color: 'rgba(255,255,255,0.25)' }}>指名・日付</span>
+                    )}
+                  </div>
+                )}
+
+                {activeFilterCount > 0 && !showFilter && (
+                  <span className="text-xs px-1.5 py-0.5 rounded-full font-bold flex-shrink-0"
+                    style={{ background: '#7c3aed', color: 'white' }}>
+                    {activeFilterCount}
+                  </span>
+                )}
+
+                <span className="ml-auto text-xs flex-shrink-0" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                  {showFilter ? '▲' : '▼'}
+                </span>
+              </button>
+
+              {/* 展開時のコンテンツ */}
+              {showFilter && (
+                <div className="px-3 pb-3 space-y-4 border-t" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
+
+                  {/* 指名フィルター */}
+                  <div className="pt-3">
+                    <p className="text-xs mb-2" style={{ color: 'rgba(255,255,255,0.4)' }}>指名の子</p>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        onClick={() => setCastFilter('')}
+                        className="px-3.5 py-1.5 rounded-full text-sm font-bold transition-all"
+                        style={!castFilter
+                          ? { background: '#7c3aed', color: 'white' }
+                          : { background: 'rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.55)', border: '1px solid rgba(255,255,255,0.12)' }
+                        }
+                      >
+                        すべて
+                      </button>
+                      {casts.map(name => {
+                        const cc = castColor(name);
+                        const isActive = castFilter === name;
+                        return (
+                          <button
+                            key={name}
+                            onClick={() => setCastFilter(isActive ? '' : name)}
+                            className="px-3.5 py-1.5 rounded-full text-sm font-bold transition-all"
+                            style={isActive
+                              ? { background: cc, color: '#0d0d1a' }
+                              : { background: 'rgba(255,255,255,0.06)', color: cc, border: `1px solid ${cc}55` }
+                            }
+                          >
+                            {name}
+                          </button>
+                        );
+                      })}
+                      <button
+                        onClick={() => setShowCastMgr(true)}
+                        className="px-3.5 py-1.5 rounded-full text-sm transition-all"
+                        style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.4)', border: '1px solid rgba(255,255,255,0.1)' }}
+                      >
+                        ＋ 管理
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 日付フィルター */}
+                  <div>
+                    <p className="text-xs mb-2" style={{ color: 'rgba(255,255,255,0.4)' }}>入れた日付</p>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="date"
+                        value={dateFrom}
+                        onChange={e => setDateFrom(e.target.value)}
+                        className="flex-1 rounded-xl px-3 py-2 text-sm text-white outline-none"
+                        style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', colorScheme: 'dark' }}
+                      />
+                      <span className="text-white/30 flex-shrink-0">〜</span>
+                      <input
+                        type="date"
+                        value={dateTo}
+                        onChange={e => setDateTo(e.target.value)}
+                        className="flex-1 rounded-xl px-3 py-2 text-sm text-white outline-none"
+                        style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', colorScheme: 'dark' }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* クリアボタン */}
+                  {activeFilterCount > 0 && (
                     <button
-                      key={name}
-                      onClick={() => setCastFilter(isActive ? '' : name)}
-                      className="px-2.5 py-1 rounded-full text-xs font-bold transition-all flex-shrink-0"
-                      style={isActive
-                        ? { background: cc, color: '#0d0d1a' }
-                        : { background: 'rgba(255,255,255,0.06)', color: cc, border: `1px solid ${cc}50` }
-                      }
+                      onClick={clearFilters}
+                      className="w-full py-2 rounded-xl text-sm font-medium transition-all"
+                      style={{ background: 'rgba(248,113,113,0.12)', color: '#f87171', border: '1px solid rgba(248,113,113,0.2)' }}
                     >
-                      {name}
+                      フィルターをクリア
                     </button>
-                  );
-                })}
-                <button
-                  onClick={() => setShowCastMgr(true)}
-                  className="px-2.5 py-1 rounded-full text-xs transition-all flex-shrink-0"
-                  style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.4)', border: '1px solid rgba(255,255,255,0.1)' }}
-                >
-                  ＋ 管理
-                </button>
-              </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {isFiltered && (
-              <p className="text-xs mt-1.5 pl-1" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                {[query && `「${query}」`, castFilter && castFilter].filter(Boolean).join(' ・ ')}：{filtered.length}件
+              <p className="text-xs mt-2 pl-1" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                {filtered.length}件表示
               </p>
             )}
           </>
@@ -271,14 +340,10 @@ export default function App() {
 
       {/* キャストビュー */}
       {view === 'casts' && (
-        <CastList
-          bottles={bottles}
-          casts={casts}
-          onSelectCast={handleSelectCast}
-        />
+        <CastList bottles={bottles} casts={casts} onSelectCast={handleSelectCast} />
       )}
 
-      {/* FAB（ボトルビューのみ） */}
+      {/* FAB */}
       {view === 'bottles' && (
         <button
           onClick={openAdd}
