@@ -1,5 +1,5 @@
 import { formatDate } from '../utils/date';
-import { castColor } from '../utils/castColors';
+import { castColor, getCastNames } from '../utils/castColors';
 
 const MAX_G  = 700;
 const MAX_CM = 30;
@@ -37,8 +37,8 @@ function AmountRing({ value, unit }) {
 }
 
 export default function BottleCard({ bottle, onClick }) {
-  const dateLabel = formatDate(bottle.purchaseDate);
-  const cc = bottle.castName ? castColor(bottle.castName) : null;
+  const dateLabel  = formatDate(bottle.purchaseDate);
+  const castNames  = getCastNames(bottle);
 
   return (
     <button
@@ -58,10 +58,8 @@ export default function BottleCard({ bottle, onClick }) {
       }}
     >
       <div className="flex items-center gap-4">
-        {/* 残量リング */}
         <AmountRing value={bottle.remainingAmount} unit={bottle.remainingUnit} />
 
-        {/* メイン情報 */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-bold text-white text-base truncate">{bottle.name}</span>
@@ -90,10 +88,18 @@ export default function BottleCard({ bottle, onClick }) {
             {bottle.customerName && (
               <span className="text-xs text-white/60">👤 {bottle.customerName}</span>
             )}
-            {bottle.castName && (
-              <span className="text-xs font-bold" style={{ color: cc }}>✨ {bottle.castName}</span>
-            )}
           </div>
+
+          {castNames.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-1">
+              {castNames.map(name => (
+                <span key={name} className="text-xs font-bold"
+                  style={{ color: castColor(name) }}>
+                  ✨ {name}
+                </span>
+              ))}
+            </div>
+          )}
 
           {bottle.notes && (
             <div className="text-xs text-white/40 mt-1 truncate">{bottle.notes}</div>

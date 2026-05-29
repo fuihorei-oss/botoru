@@ -3,11 +3,11 @@ import { todayString, getDayOfWeek } from '../utils/date';
 import { generateId } from '../utils/storage';
 import { castColor } from '../utils/castColors';
 
-const MAX_G  = 700;
-const MAX_CM = 30;
+const MAX_G   = 700;
+const MAX_CM  = 30;
 
 const QUICK_G  = [700, 600, 500, 400, 300, 200, 100, 0];
-const QUICK_CM = [30, 25, 20, 15, 10, 5, 2.5, 0];
+const QUICK_CM = [30, 20, 10, 5, 1, 0.5, 0];
 
 function AmountBar({ value, unit }) {
   const max = unit === 'cm' ? MAX_CM : MAX_G;
@@ -23,9 +23,17 @@ function AmountBar({ value, unit }) {
   );
 }
 
+function normalizeCastName(bottle) {
+  if (!bottle) return [];
+  if (Array.isArray(bottle.castName)) return bottle.castName;
+  if (bottle.castName) return [bottle.castName];
+  return [];
+}
+
 export default function BottleForm({ bottle, casts = [], onSave, onDelete, onClose }) {
   const isEdit = !!bottle;
   const [showCastChips, setShowCastChips] = useState(false);
+  const [castInput, setCastInput] = useState('');
 
   const [form, setForm] = useState({
     name: '',
@@ -36,9 +44,10 @@ export default function BottleForm({ bottle, casts = [], onSave, onDelete, onClo
     isPhysical: false,
     isUnopened: false,
     customerName: '',
-    castName: '',
+    castName: [],
     notes: '',
     ...bottle,
+    castName: normalizeCastName(bottle),
   });
 
   const dayLabel = getDayOfWeek(form.purchaseDate);
@@ -54,13 +63,30 @@ export default function BottleForm({ bottle, casts = [], onSave, onDelete, onClo
     set('remainingAmount', newUnit === 'cm' ? MAX_CM : MAX_G);
   }
 
+  function toggleCast(name) {
+    const current = form.castName;
+    if (current.includes(name)) {
+      set('castName', current.filter(n => n !== name));
+    } else {
+      set('castName', [...current, name]);
+    }
+  }
+
+  function addCastInput() {
+    const name = castInput.trim();
+    if (name && !form.castName.includes(name)) {
+      set('castName', [...form.castName, name]);
+    }
+    setCastInput('');
+  }
+
   function handleSubmit(e) {
     e.preventDefault();
     if (!form.name.trim()) return;
     onSave({ ...form, id: form.id || generateId(), updatedAt: Date.now() });
   }
 
-  const inputStyle = { background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)' };
+  const inputStyle  = { background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)' };
   const activeBtn   = { background: '#7c3aed', color: 'white', border: '1px solid #7c3aed' };
   const inactiveBtn = { background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.12)' };
 
@@ -71,7 +97,6 @@ export default function BottleForm({ bottle, casts = [], onSave, onDelete, onClo
       <div className="relative w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl overflow-hidden shadow-2xl"
         style={{ background: 'linear-gradient(145deg, #1a1a2e 0%, #16213e 100%)', border: '1px solid rgba(255,255,255,0.1)' }}>
 
-        {/* Header */}
         <div className="flex items-center justify-between px-5 pt-5 pb-3">
           <h2 className="text-lg font-bold text-white">{isEdit ? 'ボトル編集' : 'ボトル追加'}</h2>
           <button onClick={onClose} className="text-white/50 hover:text-white text-2xl leading-none">×</button>
@@ -108,26 +133,20 @@ export default function BottleForm({ bottle, casts = [], onSave, onDelete, onClo
           <div>
             <label className="block text-xs text-white/60 mb-2">保管状況</label>
             <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => set('isPhysical', !form.isPhysical)}
+              <button type="button" onClick={() => set('isPhysical', !form.isPhysical)}
                 className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl font-medium text-sm transition-all"
                 style={form.isPhysical
                   ? { background: 'rgba(52,211,153,0.15)', border: '1px solid rgba(52,211,153,0.5)', color: '#34d399' }
                   : { background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.5)' }
-                }
-              >
+                }>
                 <span>📦</span> 現物保管
               </button>
-              <button
-                type="button"
-                onClick={() => set('isUnopened', !form.isUnopened)}
+              <button type="button" onClick={() => set('isUnopened', !form.isUnopened)}
                 className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl font-medium text-sm transition-all"
                 style={form.isUnopened
                   ? { background: 'rgba(96,165,250,0.15)', border: '1px solid rgba(96,165,250,0.5)', color: '#60a5fa' }
                   : { background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.5)' }
-                }
-              >
+                }>
                 <span>🔒</span> 未開封
               </button>
             </div>
@@ -156,16 +175,12 @@ export default function BottleForm({ bottle, casts = [], onSave, onDelete, onClo
               <label className="text-xs text-white/60">残量</label>
               <div className="flex rounded-lg overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.15)' }}>
                 {['g', 'cm'].map(u => (
-                  <button
-                    key={u}
-                    type="button"
-                    onClick={() => switchUnit(u)}
+                  <button key={u} type="button" onClick={() => switchUnit(u)}
                     className="px-3 py-1 text-xs font-bold transition-all"
                     style={unit === u
                       ? { background: '#7c3aed', color: 'white' }
                       : { background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.5)' }
-                    }
-                  >
+                    }>
                     {u}
                   </button>
                 ))}
@@ -176,7 +191,6 @@ export default function BottleForm({ bottle, casts = [], onSave, onDelete, onClo
               <input
                 type="number"
                 min={0}
-                max={unit === 'cm' ? 99 : 9999}
                 step={unit === 'cm' ? 0.5 : 1}
                 value={form.remainingAmount}
                 onChange={e => set('remainingAmount', Math.max(0, Number(e.target.value)))}
@@ -190,13 +204,10 @@ export default function BottleForm({ bottle, casts = [], onSave, onDelete, onClo
 
             <div className="flex flex-wrap gap-1.5 mt-2">
               {quickOptions.map(v => (
-                <button
-                  key={v}
-                  type="button"
+                <button key={v} type="button"
                   onClick={() => set('remainingAmount', v)}
                   className="px-3 py-1 rounded-lg text-sm font-medium transition-all"
-                  style={form.remainingAmount === v ? activeBtn : inactiveBtn}
-                >
+                  style={form.remainingAmount === v ? activeBtn : inactiveBtn}>
                   {v}{unit}
                 </button>
               ))}
@@ -215,61 +226,84 @@ export default function BottleForm({ bottle, casts = [], onSave, onDelete, onClo
             />
           </div>
 
-          {/* 指名の子（折りたたみ式） */}
+          {/* 指名の子（複数選択・折りたたみ） */}
           <div className="rounded-xl overflow-hidden"
             style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)' }}>
 
-            {/* ヘッダー行：入力 + トグル */}
+            {/* ヘッダー行 */}
             <div className="flex items-center gap-2 px-3 pt-3 pb-2">
               <label className="text-xs text-white/60 flex-shrink-0">指名の子</label>
-              {form.castName && (
-                <span className="text-xs font-bold flex-shrink-0"
-                  style={{ color: castColor(form.castName) }}>
-                  {form.castName}
-                </span>
+              {form.castName.length > 0 && (
+                <span className="text-xs text-white/40 flex-shrink-0">{form.castName.length}名</span>
               )}
-              {casts.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setShowCastChips(v => !v)}
-                  className="ml-auto text-xs px-2 py-0.5 rounded-full flex-shrink-0 transition-all"
-                  style={{ color: 'rgba(255,255,255,0.35)', background: 'rgba(255,255,255,0.06)' }}
-                >
-                  {showCastChips ? '▲ 閉じる' : '▼ 選択'}
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => setShowCastChips(v => !v)}
+                className="ml-auto text-xs px-2 py-0.5 rounded-full flex-shrink-0 transition-all"
+                style={{ color: 'rgba(255,255,255,0.35)', background: 'rgba(255,255,255,0.06)' }}
+              >
+                {showCastChips ? '▲ 閉じる' : '▼ 選択'}
+              </button>
             </div>
 
-            <div className="px-3 pb-3">
-              <input
-                value={form.castName}
-                onChange={e => set('castName', e.target.value)}
-                placeholder="さくら"
-                className="w-full rounded-xl px-4 py-2.5 text-white placeholder-white/30 outline-none focus:ring-2 focus:ring-purple-500"
-                style={inputStyle}
-              />
-
-              {/* 展開時のチップ */}
-              {showCastChips && casts.length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-3">
-                  {casts.map(name => {
+            <div className="px-3 pb-3 space-y-2">
+              {/* 選択済みチップ */}
+              {form.castName.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {form.castName.map(name => {
                     const cc = castColor(name);
-                    const isActive = form.castName === name;
                     return (
-                      <button
-                        key={name}
-                        type="button"
-                        onClick={() => set('castName', isActive ? '' : name)}
-                        className="px-3.5 py-1.5 rounded-full text-sm font-bold transition-all"
-                        style={isActive
-                          ? { background: cc, color: '#0d0d1a' }
-                          : { background: 'rgba(255,255,255,0.06)', color: cc, border: `1px solid ${cc}60` }
-                        }
-                      >
+                      <button key={name} type="button"
+                        onClick={() => toggleCast(name)}
+                        className="flex items-center gap-1 px-3 py-1 rounded-full text-sm font-bold transition-all"
+                        style={{ background: cc, color: '#0d0d1a' }}>
                         {name}
+                        <span style={{ opacity: 0.7, fontSize: 12 }}>×</span>
                       </button>
                     );
                   })}
+                </div>
+              )}
+
+              {/* 展開時：登録済みキャストチップ */}
+              {showCastChips && (
+                <div className="space-y-2 pt-1 border-t" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
+                  {casts.length > 0 && (
+                    <div className="flex flex-wrap gap-2 pt-2">
+                      {casts.map(name => {
+                        const cc = castColor(name);
+                        const isActive = form.castName.includes(name);
+                        return (
+                          <button key={name} type="button"
+                            onClick={() => toggleCast(name)}
+                            className="px-3.5 py-1.5 rounded-full text-sm font-bold transition-all"
+                            style={isActive
+                              ? { background: cc, color: '#0d0d1a' }
+                              : { background: 'rgba(255,255,255,0.06)', color: cc, border: `1px solid ${cc}60` }
+                            }>
+                            {name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* 未登録の名前を直接追加 */}
+                  <div className="flex gap-2 pt-1">
+                    <input
+                      value={castInput}
+                      onChange={e => setCastInput(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addCastInput())}
+                      placeholder="直接入力して追加..."
+                      className="flex-1 rounded-xl px-3 py-2 text-sm text-white placeholder-white/25 outline-none"
+                      style={inputStyle}
+                    />
+                    <button type="button" onClick={addCastInput}
+                      className="px-3 py-2 rounded-xl text-sm font-bold text-white flex-shrink-0"
+                      style={{ background: 'rgba(124,58,237,0.4)' }}>
+                      追加
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -288,23 +322,18 @@ export default function BottleForm({ bottle, casts = [], onSave, onDelete, onClo
             />
           </div>
 
-          {/* 保存・削除ボタン */}
+          {/* 保存・削除 */}
           <div className="flex gap-3 pt-2">
             {isEdit && (
-              <button
-                type="button"
-                onClick={() => onDelete(bottle.id)}
+              <button type="button" onClick={() => onDelete(bottle.id)}
                 className="px-4 py-2.5 rounded-xl text-red-400 font-medium transition-all"
-                style={{ border: '1px solid rgba(248,113,113,0.3)' }}
-              >
+                style={{ border: '1px solid rgba(248,113,113,0.3)' }}>
                 削除
               </button>
             )}
-            <button
-              type="submit"
+            <button type="submit"
               className="flex-1 py-2.5 rounded-xl font-bold text-white transition-all hover:opacity-90 active:scale-95"
-              style={{ background: 'linear-gradient(135deg, #7c3aed, #db2777)' }}
-            >
+              style={{ background: 'linear-gradient(135deg, #7c3aed, #db2777)' }}>
               {isEdit ? '保存' : '追加'}
             </button>
           </div>

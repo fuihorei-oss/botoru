@@ -14,3 +14,9 @@ export function castColor(name) {
   if (!name) return 'rgba(255,255,255,0.5)';
   return CAST_COLORS[hashStr(name) % CAST_COLORS.length];
 }
+
+export function getCastNames(bottle) {
+  if (Array.isArray(bottle.castName)) return bottle.castName;
+  if (bottle.castName) return [bottle.castName];
+  return [];
+}

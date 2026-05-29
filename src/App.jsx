@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { loadBottles, saveBottles, loadCasts, saveCasts } from './utils/storage';
 import { buildSearchIndex, searchBottles } from './utils/search';
-import { castColor } from './utils/castColors';
+import { castColor, getCastNames } from './utils/castColors';
 import BottleCard from './components/BottleCard';
 import BottleForm from './components/BottleForm';
 import CastList from './components/CastList';
@@ -51,7 +51,7 @@ export default function App() {
   const fuse = useMemo(() => buildSearchIndex(sorted), [sorted]);
   const filtered = useMemo(() => {
     let results = searchBottles(fuse, query, sorted);
-    if (castFilter) results = results.filter(b => b.castName === castFilter);
+    if (castFilter) results = results.filter(b => getCastNames(b).includes(castFilter));
     if (dateFrom)   results = results.filter(b => (b.purchaseDate || '') >= dateFrom);
     if (dateTo)     results = results.filter(b => (b.purchaseDate || '') <= dateTo);
     return results;

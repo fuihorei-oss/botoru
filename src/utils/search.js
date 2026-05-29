@@ -344,15 +344,17 @@ function buildSearchText(bottle) {
   const name         = bottle.name         || '';
   const keepName     = bottle.keepName     || '';
   const customerName = bottle.customerName || '';
-  const castName     = bottle.castName     || '';
   const notes        = bottle.notes        || '';
+  const castNames    = Array.isArray(bottle.castName)
+    ? bottle.castName
+    : (bottle.castName ? [bottle.castName] : []);
 
-  const parts = [name, keepName, customerName, castName, notes];
+  const parts = [name, keepName, customerName, ...castNames, notes];
 
   parts.push(...expandText(name));
   parts.push(...expandText(keepName));
   parts.push(...expandText(customerName));
-  parts.push(...expandText(castName));
+  for (const n of castNames) parts.push(...expandText(n));
   parts.push(...expandText(notes));
 
   parts.push(...(ALIASES[name] || []));

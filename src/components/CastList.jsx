@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { castColor } from '../utils/castColors';
+import { castColor, getCastNames } from '../utils/castColors';
 
 function CastCard({ stat, onSelect }) {
   const cc = castColor(stat.name);
@@ -66,12 +66,12 @@ export default function CastList({ bottles, casts, onSelectCast }) {
   const castStats = useMemo(() => {
     const allNames = new Set([
       ...casts,
-      ...bottles.filter(b => b.castName).map(b => b.castName),
+      ...bottles.flatMap(b => getCastNames(b)),
     ]);
     return [...allNames]
       .map(name => ({
         name,
-        bottles: bottles.filter(b => b.castName === name),
+        bottles: bottles.filter(b => getCastNames(b).includes(name)),
       }))
       .sort((a, b) => b.bottles.length - a.bottles.length);
   }, [casts, bottles]);
