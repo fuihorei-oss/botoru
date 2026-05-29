@@ -36,6 +36,7 @@ export default function App() {
   const [sortOrder, setSortOrder] = useState('date_desc');
   const [showCastMgr, setShowCastMgr] = useState(false);
   const [newCastInput, setNewCastInput] = useState('');
+  const [editingCast, setEditingCast] = useState(null); // { original, value }
 
   const sorted = useMemo(() => {
     const arr = [...bottles];
@@ -90,7 +91,24 @@ export default function App() {
 
   function removeCast(name) {
     persistCasts(casts.filter(c => c !== name));
+    persistBottles(bottles.map(b => ({
+      ...b,
+      castName: getCastNames(b).filter(n => n !== name),
+    })));
     if (castFilter === name) setCastFilter('');
+  }
+
+  function renameCast(original, newName) {
+    const trimmed = newName.trim();
+    if (!trimmed || trimmed === original) { setEditingCast(null); return; }
+    if (casts.includes(trimmed)) { setEditingCast(null); return; }
+    persistCasts(casts.map(c => c === original ? trimmed : c));
+    persistBottles(bottles.map(b => ({
+      ...b,
+      castName: getCastNames(b).map(n => n === original ? trimmed : n),
+    })));
+    if (castFilter === original) setCastFilter(trimmed);
+    setEditingCast(null);
   }
 
   function clearFilters() {
@@ -408,20 +426,53 @@ export default function App() {
                 ) : (
                   casts.map(name => {
                     const cc = castColor(name);
+                    const isEditing = editingCast?.original === name;
                     return (
-                      <div key={name} className="flex items-center justify-between rounded-xl px-4 py-2.5"
-                        style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                        <div className="flex items-center gap-2">
-                          <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: cc }} />
-                          <span className="font-bold text-sm" style={{ color: cc }}>{name}</span>
-                        </div>
-                        <button
-                          onClick={() => removeCast(name)}
-                          className="text-sm px-2 py-0.5 rounded"
-                          style={{ color: 'rgba(248,113,113,0.6)' }}
-                        >
-                          削除
-                        </button>
+                      <div key={name} className="rounded-xl px-3 py-2.5"
+                        style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${isEditing ? cc + '50' : 'rgba(255,255,255,0.08)'}` }}>
+                        {isEditing ? (
+                          <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: cc }} />
+                            <input
+                              autoFocus
+                              value={editingCast.value}
+                              onChange={e => setEditingCast(v => ({ ...v, value: e.target.value }))}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter') renameCast(name, editingCast.value);
+                                if (e.key === 'Escape') setEditingCast(null);
+                              }}
+                              className="flex-1 rounded-lg px-2 py-1 text-sm text-white outline-none focus:ring-1"
+                              style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', focusRingColor: cc }}
+                            />
+                            <button onClick={() => renameCast(name, editingCast.value)}
+                              className="text-xs px-2.5 py-1 rounded-lg font-bold flex-shrink-0"
+                              style={{ background: cc, color: '#0d0d1a' }}>
+                              保存
+                            </button>
+                            <button onClick={() => setEditingCast(null)}
+                              className="text-xs px-2 py-1 rounded-lg flex-shrink-0"
+                              style={{ color: 'rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.07)' }}>
+                              ✕
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: cc }} />
+                            <span className="font-bold text-sm flex-1" style={{ color: cc }}>{name}</span>
+                            <button
+                              onClick={() => setEditingCast({ original: name, value: name })}
+                              className="text-xs px-2.5 py-1 rounded-lg flex-shrink-0"
+                              style={{ color: 'rgba(255,255,255,0.5)', background: 'rgba(255,255,255,0.07)' }}>
+                              変更
+                            </button>
+                            <button
+                              onClick={() => removeCast(name)}
+                              className="text-xs px-2.5 py-1 rounded-lg flex-shrink-0"
+                              style={{ color: 'rgba(248,113,113,0.7)', background: 'rgba(248,113,113,0.08)' }}>
+                              削除
+                            </button>
+                          </div>
+                        )}
                       </div>
                     );
                   })
