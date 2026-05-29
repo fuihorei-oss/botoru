@@ -22,6 +22,15 @@ function PlusIcon() {
   );
 }
 
+function GearIcon() {
+  return (
+    <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+    </svg>
+  );
+}
+
 export default function App() {
   const [bottles, setBottles] = useState(() => loadBottles());
   const [casts, setCasts] = useState(() => loadCasts());
@@ -36,7 +45,8 @@ export default function App() {
   const [sortOrder, setSortOrder] = useState('date_desc');
   const [showCastMgr, setShowCastMgr] = useState(false);
   const [newCastInput, setNewCastInput] = useState('');
-  const [editingCast, setEditingCast] = useState(null); // { original, value }
+  const [editingCast, setEditingCast] = useState(null);
+  const [showDataMgr, setShowDataMgr] = useState(false);
 
   const sorted = useMemo(() => {
     const arr = [...bottles];
@@ -111,6 +121,36 @@ export default function App() {
     setEditingCast(null);
   }
 
+  function exportData() {
+    const data = { bottles, casts };
+    const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `botoru-backup-${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function importData(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        if (data.bottles) persistBottles(data.bottles);
+        if (data.casts) persistCasts(data.casts);
+        setShowDataMgr(false);
+        alert(`インポート完了: ${(data.bottles||[]).length}本`);
+      } catch {
+        alert('ファイルの読み込みに失敗しました');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  }
+
   function clearFilters() {
     setCastFilter('');
     setDateFrom('');
@@ -157,6 +197,14 @@ export default function App() {
             全{bottles.length}本
             {emptyCount > 0 && <span style={{ color: '#f87171', marginLeft: 6 }}>空き{emptyCount}本</span>}
           </p>
+
+          <button
+            onClick={() => setShowDataMgr(true)}
+            className="flex-shrink-0 w-8 h-8 rounded-xl flex items-center justify-center transition-all"
+            style={{ background: 'rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.4)', border: '1px solid rgba(255,255,255,0.1)' }}
+          >
+            <GearIcon />
+          </button>
 
           {view === 'bottles' && (
             <select
@@ -385,6 +433,38 @@ export default function App() {
           onDelete={handleDelete}
           onClose={closeForm}
         />
+      )}
+
+      {/* データ管理モーダル */}
+      {showDataMgr && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowDataMgr(false)} />
+          <div className="relative w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl shadow-2xl"
+            style={{ background: 'linear-gradient(145deg, #1a1a2e 0%, #16213e 100%)', border: '1px solid rgba(255,255,255,0.1)' }}>
+            <div className="flex items-center justify-between px-5 pt-5 pb-4">
+              <h2 className="text-lg font-bold text-white">データ管理</h2>
+              <button onClick={() => setShowDataMgr(false)} className="text-white/50 hover:text-white text-2xl leading-none">×</button>
+            </div>
+            <div className="px-5 pb-6 space-y-3">
+              <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                全{bottles.length}本 / キャスト{casts.length}名
+              </p>
+              <button onClick={exportData}
+                className="w-full py-3 rounded-xl font-bold text-white transition-all hover:opacity-90"
+                style={{ background: 'linear-gradient(135deg, #7c3aed, #db2777)' }}>
+                💾 バックアップをダウンロード
+              </button>
+              <label className="w-full py-3 rounded-xl font-bold text-center block cursor-pointer transition-all hover:opacity-90"
+                style={{ background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.15)' }}>
+                📂 バックアップから復元
+                <input type="file" accept=".json" className="hidden" onChange={importData} />
+              </label>
+              <p className="text-xs text-center" style={{ color: 'rgba(255,255,255,0.25)' }}>
+                ※ 復元すると現在のデータは上書きされます
+              </p>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* キャスト管理モーダル */}
