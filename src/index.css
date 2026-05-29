@@ -1,0 +1,21 @@
+@import "tailwindcss";
+
+@layer base {
+  * {
+    -webkit-tap-highlight-color: transparent;
+    box-sizing: border-box;
+  }
+  body {
+    margin: 0;
+    font-family: 'Hiragino Sans', 'Yu Gothic', 'Meiryo', sans-serif;
+    background-color: #0d0d1a;
+    color: #e8e8f0;
+    -webkit-font-smoothing: antialiased;
+  }
+  #root {
+    min-height: 100svh;
+  }
+  input, select, textarea {
+    font-family: inherit;
+  }
+}
