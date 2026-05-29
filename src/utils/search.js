@@ -376,6 +376,7 @@ export function buildSearchIndex(bottles) {
       { name: 'keepName',     weight: 0.8 },
       { name: 'customerName', weight: 0.7 },
       { name: 'castName',     weight: 0.7 },
+      { name: 'notes',        weight: 0.5 },
     ],
     threshold: 0.3,
     distance: 80,
