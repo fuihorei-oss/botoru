@@ -111,9 +111,13 @@ export default function App() {
   }, [fuse, query, sorted, castFilter, dateFrom, dateTo]);
 
   async function handleSave(bottle) {
-    await upsertBottle(bottle);
-    setShowForm(false);
-    setEditBottle(null);
+    try {
+      await upsertBottle(bottle);
+      setShowForm(false);
+      setEditBottle(null);
+    } catch (err) {
+      alert('保存エラー: ' + (err.message || err));
+    }
   }
 
   async function handleDelete(id) {
