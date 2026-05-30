@@ -13,8 +13,8 @@ export function isAuthenticated() {
 }
 
 export default function AuthScreen({ onAuth }) {
-  const [input, setInput] = useState('');
-  const [error, setError] = useState(false);
+  const [input, setInput]   = useState('');
+  const [error, setError]   = useState(false);
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e) {
@@ -32,38 +32,43 @@ export default function AuthScreen({ onAuth }) {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-6"
-      style={{ background: 'linear-gradient(135deg, #0d0d1a 0%, #1a1a2e 100%)' }}>
-      <div className="w-full max-w-xs">
-        <div className="text-center mb-8">
-          <div className="text-5xl mb-3">🍾</div>
-          <h1 className="text-2xl font-black text-white tracking-tight">ボトル管理</h1>
-          <p className="text-sm mt-1" style={{ color: 'rgba(255,255,255,0.35)' }}>パスワードを入力してください</p>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, background: '#f5f5f7' }}>
+      <div style={{ width: '100%', maxWidth: 320 }}>
+        <div style={{ textAlign: 'center', marginBottom: 32 }}>
+          <div style={{ fontSize: 48, marginBottom: 12 }}>🍾</div>
+          <h1 style={{ fontSize: 22, fontWeight: 900, color: '#111827', margin: 0 }}>ボトル管理</h1>
+          <p style={{ fontSize: 13, color: '#9ca3af', marginTop: 4 }}>パスワードを入力してください</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <input
             type="password"
             value={input}
             onChange={e => { setInput(e.target.value); setError(false); }}
             placeholder="パスワード"
             autoFocus
-            className="w-full rounded-2xl px-5 py-4 text-white text-center text-xl tracking-widest outline-none"
             style={{
-              background: 'rgba(255,255,255,0.08)',
-              border: error ? '1px solid #f87171' : '1px solid rgba(255,255,255,0.15)',
+              width: '100%', padding: '14px 20px', borderRadius: 16,
+              fontSize: 20, textAlign: 'center', letterSpacing: 8, outline: 'none',
+              background: '#ffffff', color: '#111827',
+              border: error ? '2px solid #ef4444' : '2px solid #e5e7eb',
+              boxSizing: 'border-box',
             }}
           />
           {error && (
-            <p className="text-center text-sm" style={{ color: '#f87171' }}>
+            <p style={{ textAlign: 'center', color: '#ef4444', fontSize: 13, margin: 0 }}>
               パスワードが違います
             </p>
           )}
           <button
             type="submit"
             disabled={!input || loading}
-            className="w-full py-4 rounded-2xl font-bold text-white text-lg transition-all active:scale-95 disabled:opacity-40"
-            style={{ background: 'linear-gradient(135deg, #7c3aed, #db2777)' }}
+            style={{
+              padding: '14px', borderRadius: 16, fontWeight: 'bold',
+              fontSize: 16, border: 'none', cursor: 'pointer',
+              background: 'linear-gradient(135deg, #7c3aed, #db2777)',
+              color: 'white', opacity: (!input || loading) ? 0.4 : 1,
+            }}
           >
             {loading ? '確認中...' : '入室'}
           </button>

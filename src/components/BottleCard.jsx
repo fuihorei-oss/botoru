@@ -12,24 +12,19 @@ function AmountRing({ value, unit }) {
   const r   = 20;
   const circ   = 2 * Math.PI * r;
   const offset = circ * (1 - pct / 100);
-  const color  = pct > 60 ? '#34d399' : pct > 30 ? '#fbbf24' : '#f87171';
+  const color  = pct > 60 ? '#10b981' : pct > 30 ? '#f59e0b' : '#ef4444';
   const label  = u === 'cm' ? `${v}` : v >= 1000 ? `${(v / 1000).toFixed(1)}k` : `${v}`;
 
   return (
-    <div className="relative flex items-center justify-center flex-shrink-0" style={{ width: 56, height: 56 }}>
+    <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, width: 56, height: 56 }}>
       <svg width={56} height={56} viewBox="0 0 56 56" style={{ transform: 'rotate(-90deg)' }}>
-        <circle cx={28} cy={28} r={r} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth={5} />
-        <circle
-          cx={28} cy={28} r={r} fill="none"
-          stroke={color} strokeWidth={5}
-          strokeDasharray={circ}
-          strokeDashoffset={offset}
-          strokeLinecap="round"
-          style={{ transition: 'stroke-dashoffset 0.4s ease' }}
-        />
+        <circle cx={28} cy={28} r={r} fill="none" stroke="#e5e7eb" strokeWidth={5} />
+        <circle cx={28} cy={28} r={r} fill="none" stroke={color} strokeWidth={5}
+          strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
+          style={{ transition: 'stroke-dashoffset 0.4s ease' }} />
       </svg>
-      <div className="absolute flex flex-col items-center leading-none">
-        <span className="font-bold" style={{ color, fontSize: 11 }}>{label}</span>
+      <div style={{ position: 'absolute', display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1 }}>
+        <span style={{ fontWeight: 'bold', color, fontSize: 11 }}>{label}</span>
         <span style={{ color, fontSize: 9 }}>{u}</span>
       </div>
     </div>
@@ -37,64 +32,62 @@ function AmountRing({ value, unit }) {
 }
 
 export default function BottleCard({ bottle, onClick }) {
-  const dateLabel  = formatDate(bottle.purchaseDate);
-  const castNames  = getCastNames(bottle);
+  const dateLabel = formatDate(bottle.purchaseDate);
+  const castNames = getCastNames(bottle);
+
+  const cardBg = bottle.isPhysical
+    ? 'linear-gradient(145deg, rgba(16,185,129,0.08), rgba(16,185,129,0.02))'
+    : bottle.isUnopened
+      ? 'linear-gradient(145deg, rgba(59,130,246,0.08), rgba(59,130,246,0.02))'
+      : '#ffffff';
+  const cardBorder = bottle.isPhysical
+    ? '1px solid rgba(16,185,129,0.3)'
+    : bottle.isUnopened
+      ? '1px solid rgba(59,130,246,0.3)'
+      : '1px solid #e5e7eb';
 
   return (
-    <button
-      onClick={() => onClick(bottle)}
-      className="w-full text-left rounded-2xl p-4 transition-all duration-200 hover:scale-[1.01] active:scale-[0.99]"
+    <button onClick={() => onClick(bottle)}
       style={{
-        background: bottle.isPhysical
-          ? 'linear-gradient(145deg, rgba(52,211,153,0.1) 0%, rgba(52,211,153,0.04) 100%)'
-          : bottle.isUnopened
-            ? 'linear-gradient(145deg, rgba(96,165,250,0.1) 0%, rgba(96,165,250,0.04) 100%)'
-            : 'linear-gradient(145deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.03) 100%)',
-        border: bottle.isPhysical
-          ? '1px solid rgba(52,211,153,0.25)'
-          : bottle.isUnopened
-            ? '1px solid rgba(96,165,250,0.25)'
-            : '1px solid rgba(255,255,255,0.1)',
+        width: '100%', textAlign: 'left', borderRadius: 16, padding: 16,
+        background: cardBg, border: cardBorder, cursor: 'pointer',
+        transition: 'transform 0.15s, box-shadow 0.15s',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
       }}
+      onMouseOver={e => e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)'}
+      onMouseOut={e => e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.06)'}
     >
-      <div className="flex items-center gap-4">
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
         <AmountRing value={bottle.remainingAmount} unit={bottle.remainingUnit} />
 
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-bold text-white text-base truncate">{bottle.name}</span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <span style={{ fontWeight: 'bold', color: '#111827', fontSize: 15 }}>{bottle.name}</span>
             {bottle.isPhysical && (
-              <span className="text-xs px-1.5 py-0.5 rounded-md flex-shrink-0"
-                style={{ background: 'rgba(52,211,153,0.15)', color: '#34d399', border: '1px solid rgba(52,211,153,0.3)' }}>
+              <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6, background: 'rgba(16,185,129,0.1)', color: '#059669', border: '1px solid rgba(16,185,129,0.25)', flexShrink: 0 }}>
                 📦 現物
               </span>
             )}
             {bottle.isUnopened && (
-              <span className="text-xs px-1.5 py-0.5 rounded-md flex-shrink-0"
-                style={{ background: 'rgba(96,165,250,0.15)', color: '#60a5fa', border: '1px solid rgba(96,165,250,0.3)' }}>
+              <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6, background: 'rgba(59,130,246,0.1)', color: '#2563eb', border: '1px solid rgba(59,130,246,0.25)', flexShrink: 0 }}>
                 🔒 未開封
               </span>
             )}
           </div>
 
           {bottle.keepName && (
-            <div className="text-xs truncate mt-0.5" style={{ color: 'rgba(196,181,253,0.8)' }}>🏷 {bottle.keepName}</div>
+            <div style={{ fontSize: 12, color: '#7c3aed', marginTop: 2 }}>🏷 {bottle.keepName}</div>
           )}
 
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1">
-            {dateLabel && (
-              <span className="text-xs text-purple-300">{dateLabel}</span>
-            )}
-            {bottle.customerName && (
-              <span className="text-xs text-white/60">👤 {bottle.customerName}</span>
-            )}
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '2px 12px', marginTop: 4 }}>
+            {dateLabel && <span style={{ fontSize: 12, color: '#9ca3af' }}>{dateLabel}</span>}
+            {bottle.customerName && <span style={{ fontSize: 12, color: '#6b7280' }}>👤 {bottle.customerName}</span>}
           </div>
 
           {castNames.length > 0 && (
-            <div className="flex flex-wrap gap-1 mt-1">
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
               {castNames.map(name => (
-                <span key={name} className="text-xs font-bold"
-                  style={{ color: castColor(name) }}>
+                <span key={name} style={{ fontSize: 12, fontWeight: 'bold', color: castColor(name) }}>
                   ✨ {name}
                 </span>
               ))}
@@ -102,11 +95,13 @@ export default function BottleCard({ bottle, onClick }) {
           )}
 
           {bottle.notes && (
-            <div className="text-xs text-white/40 mt-1 truncate">{bottle.notes}</div>
+            <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {bottle.notes}
+            </div>
           )}
         </div>
 
-        <div className="text-white/30 text-lg flex-shrink-0">›</div>
+        <div style={{ color: '#d1d5db', fontSize: 18, flexShrink: 0 }}>›</div>
       </div>
     </button>
   );

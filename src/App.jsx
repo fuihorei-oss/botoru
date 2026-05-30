@@ -51,7 +51,7 @@ export default function App() {
   const [showFilter, setShowFilter] = useState(false);
   const [showForm, setShowForm]   = useState(false);
   const [editBottle, setEditBottle] = useState(null);
-  const [sortOrder, setSortOrder] = useState('date_desc');
+  const [sortOrder, setSortOrder] = useState('updated_desc');
   const [showCastMgr, setShowCastMgr] = useState(false);
   const [newCastInput, setNewCastInput] = useState('');
   const [editingCast, setEditingCast]   = useState(null);
@@ -93,6 +93,7 @@ export default function App() {
   const sorted = useMemo(() => {
     const arr = [...bottles];
     switch (sortOrder) {
+      case 'updated_desc': return arr.sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0));
       case 'date_desc': return arr.sort((a, b) => (b.purchaseDate || '') > (a.purchaseDate || '') ? 1 : -1);
       case 'date_asc':  return arr.sort((a, b) => (a.purchaseDate || '') > (b.purchaseDate || '') ? 1 : -1);
       case 'amount':    return arr.sort((a, b) => (a.remainingAmount ?? 100) - (b.remainingAmount ?? 100));
@@ -207,34 +208,23 @@ export default function App() {
   const activeFilterCount = (castFilter ? 1 : 0) + (dateFrom || dateTo ? 1 : 0);
   const isFiltered        = !!query || activeFilterCount > 0;
 
-  // ── Migration screen ──────────────────────────────────────────────
+  // ── Migration screen ─────────────────────────────────────────────
   if (migrating) {
-    const pct = migrateProgress.total > 0
-      ? Math.round((migrateProgress.done / migrateProgress.total) * 100) : 0;
-
+    const pct = migrateProgress.total > 0 ? Math.round((migrateProgress.done / migrateProgress.total) * 100) : 0;
     function skipMigration() {
-      localStorage.removeItem('cabaret_bottles');
-      localStorage.removeItem('cabaret_casts');
+      localStorage.removeItem('cabaret_bottles'); localStorage.removeItem('cabaret_casts');
       setMigrating(false);
-      const unsubB = subscribeBottles(data => { setBottles(data); setLoading(false); });
-      const unsubC = subscribeCasts(setCasts);
+      subscribeBottles(data => { setBottles(data); setLoading(false); }); subscribeCasts(setCasts);
     }
-
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#0d0d1a', padding: 32 }}>
+      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#f5f5f7', padding: 32 }}>
         <div style={{ fontSize: 40, marginBottom: 24 }}>🍾</div>
-        <div style={{ color: 'white', fontWeight: 'bold', marginBottom: 8 }}>データをクラウドに移行中...</div>
-        <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13, marginBottom: 24 }}>
-          {migrateProgress.done} / {migrateProgress.total} 本
-        </div>
-        <div style={{ width: 280, height: 8, borderRadius: 4, background: 'rgba(255,255,255,0.1)', marginBottom: 32 }}>
+        <div style={{ color: '#111827', fontWeight: 'bold', marginBottom: 8 }}>データをクラウドに移行中...</div>
+        <div style={{ color: '#9ca3af', fontSize: 13, marginBottom: 24 }}>{migrateProgress.done} / {migrateProgress.total} 本</div>
+        <div style={{ width: 280, height: 8, borderRadius: 4, background: '#e5e7eb', marginBottom: 32 }}>
           <div style={{ height: '100%', borderRadius: 4, background: 'linear-gradient(90deg,#7c3aed,#db2777)', width: `${pct}%`, transition: 'width 0.3s' }} />
         </div>
-        <div style={{ color: 'rgba(255,255,255,0.25)', fontSize: 12, marginBottom: 12 }}>
-          時間がかかる場合は以下をタップ
-        </div>
-        <button onClick={skipMigration}
-          style={{ background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.5)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 12, padding: '8px 20px', fontSize: 13, cursor: 'pointer' }}>
+        <button onClick={skipMigration} style={{ background: '#fff', color: '#9ca3af', border: '1px solid #e5e7eb', borderRadius: 12, padding: '8px 20px', fontSize: 13, cursor: 'pointer' }}>
           スキップして後で移行
         </button>
       </div>
@@ -244,50 +234,52 @@ export default function App() {
   // ── Loading screen ────────────────────────────────────────────────
   if (loading) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0d0d1a' }}>
-        <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: 14 }}>読み込み中...</div>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f5f5f7' }}>
+        <div style={{ color: '#9ca3af', fontSize: 14 }}>読み込み中...</div>
       </div>
     );
   }
 
+  const modal = { position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' };
+  const sheet = { position: 'relative', width: '100%', maxWidth: 448, borderRadius: '20px 20px 0 0', background: '#fff', boxShadow: '0 -4px 32px rgba(0,0,0,0.12)' };
+  const sheetHeader = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 20px 12px' };
+  const sheetTitle = { margin: 0, fontSize: 17, fontWeight: 'bold', color: '#111827' };
+  const closeBtn = { background: 'none', border: 'none', fontSize: 24, cursor: 'pointer', color: '#9ca3af', lineHeight: 1 };
+  const inp = { background: '#f9fafb', border: '1px solid #e5e7eb', color: '#111827', borderRadius: 12, padding: '10px 14px', outline: 'none', fontSize: 14, boxSizing: 'border-box' };
+
   return (
-    <div className="min-h-screen flex flex-col" style={{ maxWidth: 640, margin: '0 auto' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', maxWidth: 640, margin: '0 auto' }}>
 
       {/* ヘッダー */}
-      <header className="sticky top-0 z-30 pt-4 pb-3 px-4"
-        style={{ background: 'linear-gradient(180deg, #0d0d1a 85%, transparent)', backdropFilter: 'blur(8px)' }}>
+      <header style={{ position: 'sticky', top: 0, zIndex: 30, padding: '14px 16px 12px', background: '#fff', borderBottom: '1px solid #e5e7eb' }}>
 
         {/* タブ行 */}
-        <div className="flex items-center gap-2 mb-3">
-          <div className="flex rounded-xl overflow-hidden flex-shrink-0"
-            style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.1)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+          <div style={{ display: 'flex', borderRadius: 10, overflow: 'hidden', border: '1px solid #e5e7eb', flexShrink: 0 }}>
             <button onClick={() => setView('bottles')}
-              className="px-3 py-1.5 text-sm font-bold transition-all"
-              style={view === 'bottles' ? { background: '#7c3aed', color: 'white' } : { color: 'rgba(255,255,255,0.45)' }}>
+              style={{ padding: '6px 14px', fontSize: 13, fontWeight: 'bold', border: 'none', cursor: 'pointer', background: view === 'bottles' ? '#7c3aed' : '#f9fafb', color: view === 'bottles' ? '#fff' : '#9ca3af' }}>
               🍾 ボトル
             </button>
             <button onClick={() => setView('casts')}
-              className="px-3 py-1.5 text-sm font-bold transition-all"
-              style={view === 'casts' ? { background: '#7c3aed', color: 'white' } : { color: 'rgba(255,255,255,0.45)' }}>
+              style={{ padding: '6px 14px', fontSize: 13, fontWeight: 'bold', border: 'none', cursor: 'pointer', background: view === 'casts' ? '#7c3aed' : '#f9fafb', color: view === 'casts' ? '#fff' : '#9ca3af' }}>
               👑 キャスト
             </button>
           </div>
 
-          <p className="text-xs flex-1 min-w-0" style={{ color: 'rgba(255,255,255,0.4)' }}>
+          <p style={{ fontSize: 12, flex: 1, minWidth: 0, color: '#9ca3af', margin: 0 }}>
             全{bottles.length}本
-            {emptyCount > 0 && <span style={{ color: '#f87171', marginLeft: 6 }}>空き{emptyCount}本</span>}
+            {emptyCount > 0 && <span style={{ color: '#ef4444', marginLeft: 6 }}>空き{emptyCount}本</span>}
           </p>
 
           <button onClick={() => setShowDataMgr(true)}
-            className="flex-shrink-0 w-8 h-8 rounded-xl flex items-center justify-center transition-all"
-            style={{ background: 'rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.4)', border: '1px solid rgba(255,255,255,0.1)' }}>
+            style={{ flexShrink: 0, width: 32, height: 32, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f9fafb', color: '#9ca3af', border: '1px solid #e5e7eb', cursor: 'pointer' }}>
             <GearIcon />
           </button>
 
           {view === 'bottles' && (
             <select value={sortOrder} onChange={e => setSortOrder(e.target.value)}
-              className="text-xs rounded-lg px-2 py-1.5 outline-none flex-shrink-0"
-              style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.8)', colorScheme: 'dark' }}>
+              style={{ fontSize: 12, borderRadius: 8, padding: '4px 8px', outline: 'none', flexShrink: 0, background: '#f9fafb', border: '1px solid #e5e7eb', color: '#374151' }}>
+              <option value="updated_desc">更新順</option>
               <option value="date_desc">日付↓</option>
               <option value="date_asc">日付↑</option>
               <option value="amount">残量↑</option>
@@ -299,105 +291,82 @@ export default function App() {
         {view === 'bottles' && (
           <>
             {/* 検索バー */}
-            <div className="relative mb-2">
-              <span className="absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: 'rgba(255,255,255,0.4)' }}>
+            <div style={{ position: 'relative', marginBottom: 8 }}>
+              <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }}>
                 <SearchIcon />
               </span>
               <input type="text" value={query} onChange={e => setQuery(e.target.value)}
-                placeholder="銘柄・お客さん・メモで検索"
-                className="w-full rounded-xl pl-10 pr-10 py-2.5 text-sm outline-none"
-                style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: 'white' }} />
+                placeholder="銘柄・ネック・お客さん・キャスト・メモで検索"
+                style={{ ...inp, width: '100%', paddingLeft: 40, paddingRight: query ? 36 : 14 }} />
               {query && (
                 <button onClick={() => setQuery('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xl leading-none"
-                  style={{ color: 'rgba(255,255,255,0.4)' }}>×</button>
+                  style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#9ca3af', lineHeight: 1 }}>×</button>
               )}
             </div>
 
             {/* フィルターパネル */}
-            <div className="rounded-xl overflow-hidden"
-              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)' }}>
+            <div style={{ borderRadius: 12, background: '#f9fafb', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
               <button onClick={() => setShowFilter(v => !v)}
-                className="w-full flex items-center gap-2 px-3 py-2.5 text-left">
-                <span className="text-xs font-medium" style={{ color: 'rgba(255,255,255,0.5)' }}>絞り込み</span>
+                style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer' }}>
+                <span style={{ fontSize: 12, fontWeight: 500, color: '#6b7280' }}>絞り込み</span>
                 {!showFilter && (
-                  <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 0 }}>
                     {castFilter && (
-                      <span className="text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0"
-                        style={{ background: `${castColor(castFilter)}25`, color: castColor(castFilter) }}>
+                      <span style={{ fontSize: 11, fontWeight: 'bold', padding: '2px 8px', borderRadius: 20, background: `${castColor(castFilter)}18`, color: castColor(castFilter), flexShrink: 0 }}>
                         {castFilter}
                       </span>
                     )}
                     {(dateFrom || dateTo) && (
-                      <span className="text-xs px-2 py-0.5 rounded-full flex-shrink-0"
-                        style={{ background: 'rgba(124,58,237,0.25)', color: '#a78bfa' }}>
+                      <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: 'rgba(124,58,237,0.1)', color: '#7c3aed', flexShrink: 0 }}>
                         📅 {dateFrom || '…'} 〜 {dateTo || '…'}
                       </span>
                     )}
-                    {activeFilterCount === 0 && (
-                      <span className="text-xs" style={{ color: 'rgba(255,255,255,0.25)' }}>指名・日付</span>
-                    )}
+                    {activeFilterCount === 0 && <span style={{ fontSize: 11, color: '#d1d5db' }}>指名・日付</span>}
                   </div>
                 )}
                 {activeFilterCount > 0 && !showFilter && (
-                  <span className="text-xs px-1.5 py-0.5 rounded-full font-bold flex-shrink-0"
-                    style={{ background: '#7c3aed', color: 'white' }}>{activeFilterCount}</span>
+                  <span style={{ fontSize: 11, padding: '2px 6px', borderRadius: 20, background: '#7c3aed', color: '#fff', fontWeight: 'bold', flexShrink: 0 }}>{activeFilterCount}</span>
                 )}
-                <span className="ml-auto text-xs flex-shrink-0" style={{ color: 'rgba(255,255,255,0.3)' }}>
-                  {showFilter ? '▲' : '▼'}
-                </span>
+                <span style={{ marginLeft: 'auto', fontSize: 11, color: '#9ca3af', flexShrink: 0 }}>{showFilter ? '▲' : '▼'}</span>
               </button>
 
               {showFilter && (
-                <div className="px-3 pb-3 space-y-4 border-t" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
-                  <div className="pt-3">
-                    <p className="text-xs mb-2" style={{ color: 'rgba(255,255,255,0.4)' }}>指名の子</p>
-                    <div className="flex flex-wrap gap-2">
+                <div style={{ padding: '0 12px 12px', display: 'flex', flexDirection: 'column', gap: 14, borderTop: '1px solid #e5e7eb' }}>
+                  <div style={{ paddingTop: 12 }}>
+                    <p style={{ fontSize: 11, color: '#9ca3af', margin: '0 0 8px' }}>指名の子</p>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                       <button onClick={() => setCastFilter('')}
-                        className="px-3.5 py-1.5 rounded-full text-sm font-bold transition-all"
-                        style={!castFilter
-                          ? { background: '#7c3aed', color: 'white' }
-                          : { background: 'rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.55)', border: '1px solid rgba(255,255,255,0.12)' }}>
+                        style={{ padding: '5px 14px', borderRadius: 20, fontSize: 13, fontWeight: 'bold', cursor: 'pointer', border: 'none', background: !castFilter ? '#7c3aed' : '#f3f4f6', color: !castFilter ? '#fff' : '#6b7280' }}>
                         すべて
                       </button>
                       {casts.map(name => {
-                        const cc = castColor(name);
-                        const isActive = castFilter === name;
+                        const cc = castColor(name); const isActive = castFilter === name;
                         return (
                           <button key={name} onClick={() => setCastFilter(isActive ? '' : name)}
-                            className="px-3.5 py-1.5 rounded-full text-sm font-bold transition-all"
-                            style={isActive
-                              ? { background: cc, color: '#0d0d1a' }
-                              : { background: 'rgba(255,255,255,0.06)', color: cc, border: `1px solid ${cc}55` }}>
+                            style={{ padding: '5px 14px', borderRadius: 20, fontSize: 13, fontWeight: 'bold', cursor: 'pointer', background: isActive ? cc : '#f3f4f6', color: isActive ? '#fff' : cc, border: `1px solid ${cc}40` }}>
                             {name}
                           </button>
                         );
                       })}
                       <button onClick={() => setShowCastMgr(true)}
-                        className="px-3.5 py-1.5 rounded-full text-sm transition-all"
-                        style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.4)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                        style={{ padding: '5px 14px', borderRadius: 20, fontSize: 13, cursor: 'pointer', background: '#f3f4f6', color: '#9ca3af', border: '1px solid #e5e7eb' }}>
                         ＋ 管理
                       </button>
                     </div>
                   </div>
 
                   <div>
-                    <p className="text-xs mb-2" style={{ color: 'rgba(255,255,255,0.4)' }}>入れた日付</p>
-                    <div className="flex items-center gap-2">
-                      <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
-                        className="flex-1 rounded-xl px-3 py-2 text-sm text-white outline-none"
-                        style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', colorScheme: 'dark' }} />
-                      <span className="text-white/30 flex-shrink-0">〜</span>
-                      <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
-                        className="flex-1 rounded-xl px-3 py-2 text-sm text-white outline-none"
-                        style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', colorScheme: 'dark' }} />
+                    <p style={{ fontSize: 11, color: '#9ca3af', margin: '0 0 8px' }}>入れた日付</p>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} style={{ ...inp, flex: 1 }} />
+                      <span style={{ color: '#d1d5db', flexShrink: 0 }}>〜</span>
+                      <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} style={{ ...inp, flex: 1 }} />
                     </div>
                   </div>
 
                   {activeFilterCount > 0 && (
                     <button onClick={clearFilters}
-                      className="w-full py-2 rounded-xl text-sm font-medium"
-                      style={{ background: 'rgba(248,113,113,0.12)', color: '#f87171', border: '1px solid rgba(248,113,113,0.2)' }}>
+                      style={{ padding: '8px', borderRadius: 10, fontSize: 13, cursor: 'pointer', background: 'rgba(239,68,68,0.06)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.15)' }}>
                       フィルターをクリア
                     </button>
                   )}
@@ -406,9 +375,7 @@ export default function App() {
             </div>
 
             {isFiltered && (
-              <p className="text-xs mt-2 pl-1" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                {filtered.length}件表示
-              </p>
+              <p style={{ fontSize: 11, marginTop: 6, paddingLeft: 2, color: '#9ca3af' }}>{filtered.length}件表示</p>
             )}
           </>
         )}
@@ -416,67 +383,46 @@ export default function App() {
 
       {/* ボトルリスト */}
       {view === 'bottles' && (
-        <main className="flex-1 px-4 pb-28 space-y-3">
+        <main style={{ flex: 1, padding: '12px 16px 112px', display: 'flex', flexDirection: 'column', gap: 10 }}>
           {filtered.length === 0 ? (
-            <div className="text-center py-20" style={{ color: 'rgba(255,255,255,0.3)' }}>
+            <div style={{ textAlign: 'center', padding: '80px 0', color: '#9ca3af' }}>
               {isFiltered ? '該当するボトルが見つかりません' : 'ボトルがまだ登録されていません'}
             </div>
           ) : (
-            filtered.map(bottle => (
-              <BottleCard key={bottle.id} bottle={bottle} onClick={openEdit} />
-            ))
+            filtered.map(bottle => <BottleCard key={bottle.id} bottle={bottle} onClick={openEdit} />)
           )}
         </main>
       )}
 
       {/* キャストビュー */}
-      {view === 'casts' && (
-        <CastList bottles={bottles} casts={casts} onSelectCast={handleSelectCast} />
-      )}
+      {view === 'casts' && <CastList bottles={bottles} casts={casts} onSelectCast={handleSelectCast} />}
 
       {/* FAB */}
       {view === 'bottles' && (
         <button onClick={openAdd}
-          className="fixed bottom-6 right-5 w-14 h-14 rounded-full shadow-2xl flex items-center justify-center text-white z-40"
-          style={{ background: 'linear-gradient(135deg, #7c3aed, #db2777)', boxShadow: '0 4px 24px rgba(124,58,237,0.5)' }}
-          title="ボトルを追加">
+          style={{ position: 'fixed', bottom: 24, right: 20, width: 56, height: 56, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', cursor: 'pointer', zIndex: 40, background: 'linear-gradient(135deg, #7c3aed, #db2777)', boxShadow: '0 4px 20px rgba(124,58,237,0.4)', color: '#fff' }}>
           <PlusIcon />
         </button>
       )}
 
-      {/* フォームモーダル */}
-      {showForm && (
-        <BottleForm bottle={editBottle} casts={casts}
-          onSave={handleSave} onDelete={handleDelete} onClose={closeForm} />
-      )}
+      {showForm && <BottleForm bottle={editBottle} casts={casts} onSave={handleSave} onDelete={handleDelete} onClose={closeForm} />}
 
       {/* データ管理モーダル */}
       {showDataMgr && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowDataMgr(false)} />
-          <div className="relative w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl shadow-2xl"
-            style={{ background: 'linear-gradient(145deg, #1a1a2e 0%, #16213e 100%)', border: '1px solid rgba(255,255,255,0.1)' }}>
-            <div className="flex items-center justify-between px-5 pt-5 pb-4">
-              <h2 className="text-lg font-bold text-white">データ管理</h2>
-              <button onClick={() => setShowDataMgr(false)} className="text-white/50 hover:text-white text-2xl leading-none">×</button>
-            </div>
-            <div className="px-5 pb-6 space-y-3">
-              <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                全{bottles.length}本 / キャスト{casts.length}名
-              </p>
-              <button onClick={exportData}
-                className="w-full py-3 rounded-xl font-bold text-white transition-all hover:opacity-90"
-                style={{ background: 'linear-gradient(135deg, #7c3aed, #db2777)' }}>
+        <div style={modal}>
+          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.3)' }} onClick={() => setShowDataMgr(false)} />
+          <div style={sheet}>
+            <div style={sheetHeader}><h2 style={sheetTitle}>データ管理</h2><button onClick={() => setShowDataMgr(false)} style={closeBtn}>×</button></div>
+            <div style={{ padding: '0 20px 24px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <p style={{ fontSize: 12, color: '#9ca3af', margin: 0 }}>全{bottles.length}本 / キャスト{casts.length}名</p>
+              <button onClick={exportData} style={{ padding: '12px', borderRadius: 12, fontWeight: 'bold', fontSize: 14, color: '#fff', border: 'none', cursor: 'pointer', background: 'linear-gradient(135deg, #7c3aed, #db2777)' }}>
                 💾 バックアップをダウンロード
               </button>
-              <label className="w-full py-3 rounded-xl font-bold text-center block cursor-pointer transition-all hover:opacity-90"
-                style={{ background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.15)' }}>
+              <label style={{ padding: '12px', borderRadius: 12, fontWeight: 'bold', fontSize: 14, textAlign: 'center', display: 'block', cursor: 'pointer', background: '#f9fafb', color: '#6b7280', border: '1px solid #e5e7eb' }}>
                 📂 バックアップから復元
-                <input type="file" accept=".json" className="hidden" onChange={importData} />
+                <input type="file" accept=".json" style={{ display: 'none' }} onChange={importData} />
               </label>
-              <p className="text-xs text-center" style={{ color: 'rgba(255,255,255,0.25)' }}>
-                ※ 復元すると現在のデータは上書きされます
-              </p>
+              <p style={{ fontSize: 11, textAlign: 'center', color: '#d1d5db', margin: 0 }}>※ 復元すると現在のデータは上書きされます</p>
             </div>
           </div>
         </div>
@@ -484,67 +430,49 @@ export default function App() {
 
       {/* キャスト管理モーダル */}
       {showCastMgr && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowCastMgr(false)} />
-          <div className="relative w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl shadow-2xl"
-            style={{ background: 'linear-gradient(145deg, #1a1a2e 0%, #16213e 100%)', border: '1px solid rgba(255,255,255,0.1)' }}>
-            <div className="flex items-center justify-between px-5 pt-5 pb-4">
-              <h2 className="text-lg font-bold text-white">キャスト管理</h2>
-              <button onClick={() => setShowCastMgr(false)} className="text-white/50 hover:text-white text-2xl leading-none">×</button>
-            </div>
-            <div className="px-5 pb-5 space-y-3">
-              <div className="flex gap-2">
+        <div style={modal}>
+          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.3)' }} onClick={() => setShowCastMgr(false)} />
+          <div style={sheet}>
+            <div style={sheetHeader}><h2 style={sheetTitle}>キャスト管理</h2><button onClick={() => setShowCastMgr(false)} style={closeBtn}>×</button></div>
+            <div style={{ padding: '0 20px 24px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ display: 'flex', gap: 8 }}>
                 <input value={newCastInput} onChange={e => setNewCastInput(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addCast())}
                   placeholder="キャスト名を入力..."
-                  className="flex-1 rounded-xl px-4 py-2.5 text-white placeholder-white/30 outline-none focus:ring-2 focus:ring-purple-500"
-                  style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)' }} />
+                  style={{ ...inp, flex: 1 }} />
                 <button onClick={addCast}
-                  className="px-4 py-2.5 rounded-xl font-bold text-white transition-all hover:opacity-90"
-                  style={{ background: 'linear-gradient(135deg, #7c3aed, #db2777)' }}>
+                  style={{ padding: '10px 16px', borderRadius: 12, fontWeight: 'bold', color: '#fff', border: 'none', cursor: 'pointer', background: 'linear-gradient(135deg, #7c3aed, #db2777)' }}>
                   追加
                 </button>
               </div>
-              <div className="space-y-2 max-h-64 overflow-y-auto">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 256, overflowY: 'auto' }}>
                 {casts.length === 0 ? (
-                  <p className="text-center py-6 text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>
-                    まだ登録されていません
-                  </p>
+                  <p style={{ textAlign: 'center', padding: '24px 0', fontSize: 13, color: '#9ca3af', margin: 0 }}>まだ登録されていません</p>
                 ) : (
                   casts.map(name => {
-                    const cc = castColor(name);
-                    const isEditing = editingCast?.original === name;
+                    const cc = castColor(name); const isEditing = editingCast?.original === name;
                     return (
-                      <div key={name} className="rounded-xl px-3 py-2.5"
-                        style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${isEditing ? cc + '50' : 'rgba(255,255,255,0.08)'}` }}>
+                      <div key={name} style={{ borderRadius: 10, padding: '10px 12px', background: '#f9fafb', border: `1px solid ${isEditing ? cc + '40' : '#e5e7eb'}` }}>
                         {isEditing ? (
-                          <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: cc }} />
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <div style={{ width: 10, height: 10, borderRadius: '50%', background: cc, flexShrink: 0 }} />
                             <input autoFocus value={editingCast.value}
                               onChange={e => setEditingCast(v => ({ ...v, value: e.target.value }))}
-                              onKeyDown={e => {
-                                if (e.key === 'Enter') renameCast(name, editingCast.value);
-                                if (e.key === 'Escape') setEditingCast(null);
-                              }}
-                              className="flex-1 rounded-lg px-2 py-1 text-sm text-white outline-none"
-                              style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)' }} />
+                              onKeyDown={e => { if (e.key === 'Enter') renameCast(name, editingCast.value); if (e.key === 'Escape') setEditingCast(null); }}
+                              style={{ ...inp, flex: 1, padding: '4px 8px', fontSize: 13 }} />
                             <button onClick={() => renameCast(name, editingCast.value)}
-                              className="text-xs px-2.5 py-1 rounded-lg font-bold flex-shrink-0"
-                              style={{ background: cc, color: '#0d0d1a' }}>保存</button>
+                              style={{ padding: '4px 10px', borderRadius: 8, fontSize: 12, fontWeight: 'bold', background: cc, color: '#fff', border: 'none', cursor: 'pointer' }}>保存</button>
                             <button onClick={() => setEditingCast(null)}
-                              className="text-xs px-2 py-1 rounded-lg flex-shrink-0"
-                              style={{ color: 'rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.07)' }}>✕</button>
+                              style={{ padding: '4px 8px', borderRadius: 8, fontSize: 12, background: '#f3f4f6', color: '#9ca3af', border: 'none', cursor: 'pointer' }}>✕</button>
                           </div>
                         ) : (
-                          <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: cc }} />
-                            <span className="font-bold text-sm flex-1" style={{ color: cc }}>{name}</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <div style={{ width: 10, height: 10, borderRadius: '50%', background: cc, flexShrink: 0 }} />
+                            <span style={{ fontWeight: 'bold', fontSize: 13, flex: 1, color: cc }}>{name}</span>
                             <button onClick={() => setEditingCast({ original: name, value: name })}
-                              className="text-xs px-2.5 py-1 rounded-lg flex-shrink-0"
-                              style={{ color: 'rgba(255,255,255,0.5)', background: 'rgba(255,255,255,0.07)' }}>変更</button>
+                              style={{ padding: '3px 10px', borderRadius: 8, fontSize: 12, background: '#f3f4f6', color: '#6b7280', border: '1px solid #e5e7eb', cursor: 'pointer' }}>変更</button>
                             <button onClick={() => removeCast(name)}
-                              className="text-xs px-2.5 py-1 rounded-lg flex-shrink-0"
-                              style={{ color: 'rgba(248,113,113,0.7)', background: 'rgba(248,113,113,0.08)' }}>削除</button>
+                              style={{ padding: '3px 10px', borderRadius: 8, fontSize: 12, background: 'rgba(239,68,68,0.06)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.15)', cursor: 'pointer' }}>削除</button>
                           </div>
                         )}
                       </div>
