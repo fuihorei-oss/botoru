@@ -1,84 +1,68 @@
 import { db } from './firebase';
-import {
-  collection, doc, onSnapshot,
-  setDoc, deleteDoc, getDoc, writeBatch,
-} from 'firebase/firestore';
+import { ref, set, remove, onValue, update, get } from 'firebase/database';
 
 export function subscribeBottles(callback) {
-  return onSnapshot(collection(db, 'bottles'), snapshot => {
-    callback(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+  return onValue(ref(db, 'bottles'), snapshot => {
+    const data = snapshot.val() || {};
+    callback(Object.entries(data).map(([id, b]) => ({ id, ...b })));
   });
 }
 
 export function subscribeCasts(callback) {
-  return onSnapshot(doc(db, 'config', 'casts'), snap => {
-    callback(snap.exists() ? (snap.data().names || []) : []);
+  return onValue(ref(db, 'config/casts'), snapshot => {
+    callback(snapshot.val() || []);
   });
 }
 
 export async function upsertBottle(bottle) {
   const { id, ...data } = bottle;
-  await setDoc(doc(db, 'bottles', id), data);
+  await set(ref(db, `bottles/${id}`), data);
 }
 
 export async function deleteBottle(id) {
-  await deleteDoc(doc(db, 'bottles', id));
-}
-
-async function runBatch(items, fn) {
-  const CHUNK = 499;
-  for (let i = 0; i < items.length; i += CHUNK) {
-    const batch = writeBatch(db);
-    items.slice(i, i + CHUNK).forEach(item => fn(batch, item));
-    await batch.commit();
-  }
+  await remove(ref(db, `bottles/${id}`));
 }
 
 export async function batchUpsertBottles(bottles) {
-  await runBatch(bottles, (batch, bottle) => {
-    const { id, ...data } = bottle;
-    batch.set(doc(db, 'bottles', id), data);
-  });
+  const updates = {};
+  bottles.forEach(({ id, ...data }) => { updates[`bottles/${id}`] = data; });
+  await update(ref(db), updates);
 }
 
 export async function batchDeleteBottles(bottles) {
-  await runBatch(bottles, (batch, bottle) => {
-    batch.delete(doc(db, 'bottles', bottle.id));
-  });
+  const updates = {};
+  bottles.forEach(({ id }) => { updates[`bottles/${id}`] = null; });
+  await update(ref(db), updates);
 }
 
 export async function updateCasts(names) {
-  await setDoc(doc(db, 'config', 'casts'), { names });
+  await set(ref(db, 'config/casts'), names);
 }
 
 export async function migrateFromLocalStorage(onProgress) {
-  const metaRef = doc(db, 'config', 'meta');
-  const metaSnap = await getDoc(metaRef);
-  if (metaSnap.exists() && metaSnap.data().migrated) return false;
+  const metaSnap = await get(ref(db, 'config/migrated'));
+  if (metaSnap.val() === true) return false;
 
   const localBottles = JSON.parse(localStorage.getItem('cabaret_bottles') || '[]');
   const localCasts   = JSON.parse(localStorage.getItem('cabaret_casts')   || '[]');
 
   if (localBottles.length === 0 && localCasts.length === 0) {
-    await setDoc(metaRef, { migrated: true });
+    await set(ref(db, 'config/migrated'), true);
     return false;
   }
 
-  const CHUNK = 499;
-  let done = 0;
+  const CHUNK = 200;
   for (let i = 0; i < localBottles.length; i += CHUNK) {
-    const batch = writeBatch(db);
-    localBottles.slice(i, i + CHUNK).forEach(bottle => {
-      const { id, ...data } = bottle;
-      batch.set(doc(db, 'bottles', id), data);
+    const updates = {};
+    localBottles.slice(i, i + CHUNK).forEach(({ id, ...data }) => {
+      updates[`bottles/${id}`] = data;
     });
-    await batch.commit();
-    done += Math.min(CHUNK, localBottles.length - i);
-    if (onProgress) onProgress(done, localBottles.length);
+    await update(ref(db), updates);
+    if (onProgress) onProgress(Math.min(i + CHUNK, localBottles.length), localBottles.length);
   }
 
-  await setDoc(doc(db, 'config', 'casts'), { names: localCasts });
-  await setDoc(metaRef, { migrated: true });
+  await set(ref(db, 'config/casts'), localCasts);
+  await set(ref(db, 'config/migrated'), true);
 
   localStorage.removeItem('cabaret_bottles');
   localStorage.removeItem('cabaret_casts');
