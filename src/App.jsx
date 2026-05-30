@@ -11,6 +11,8 @@ import BottleForm from './components/BottleForm';
 import CastList from './components/CastList';
 import NeckList from './components/NeckList';
 
+const APP_VERSION = '1.0.2';
+
 function SearchIcon() {
   return (
     <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -278,71 +280,79 @@ export default function App() {
       <header style={{ position: 'sticky', top: 0, zIndex: 30, padding: 'calc(14px + var(--sat)) 16px 12px', background: '#fff', borderBottom: '1px solid #e5e7eb' }}>
 
         {/* タブ行 */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
           <div style={{ display: 'flex', borderRadius: 10, overflow: 'hidden', border: '1px solid #e5e7eb', flexShrink: 0 }}>
             {[['necks','🏷 ネック'],['bottles','🍾 ボトル'],['casts','👑 キャスト']].map(([v, label]) => (
               <button key={v} onClick={() => setView(v)}
-                style={{ padding: '6px 12px', fontSize: 12, fontWeight: 'bold', border: 'none', cursor: 'pointer', background: view === v ? '#7c3aed' : '#f9fafb', color: view === v ? '#fff' : '#9ca3af' }}>
+                style={{ padding: '6px 10px', fontSize: 12, fontWeight: 'bold', border: 'none', cursor: 'pointer', background: view === v ? '#7c3aed' : '#f9fafb', color: view === v ? '#fff' : '#9ca3af' }}>
                 {label}
               </button>
             ))}
           </div>
 
-          <p style={{ fontSize: 12, flex: 1, minWidth: 0, color: '#9ca3af', margin: 0 }}>
-            全{bottles.length}本
-            {emptyCount > 0 && <span style={{ color: '#ef4444', marginLeft: 6 }}>空き{emptyCount}本</span>}
-          </p>
+          <div style={{ flex: 1 }} />
 
           <button onClick={() => setShowDataMgr(true)}
-            style={{ flexShrink: 0, width: 32, height: 32, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f9fafb', color: '#9ca3af', border: '1px solid #e5e7eb', cursor: 'pointer' }}>
+            style={{ flexShrink: 0, width: 30, height: 30, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f9fafb', color: '#9ca3af', border: '1px solid #e5e7eb', cursor: 'pointer' }}>
             <GearIcon />
           </button>
-
-          {view === 'bottles' && (
-            <select value={sortOrder} onChange={e => setSortOrder(e.target.value)}
-              style={{ fontSize: 12, borderRadius: 8, padding: '4px 8px', outline: 'none', flexShrink: 0, background: '#f9fafb', border: '1px solid #e5e7eb', color: '#374151' }}>
-              <option value="updated_desc">更新順</option>
-              <option value="date_desc">日付↓</option>
-              <option value="date_asc">日付↑</option>
-              <option value="amount">残量↑</option>
-              <option value="name">名前順</option>
-            </select>
-          )}
         </div>
 
         {view === 'bottles' && (
           <>
-            {/* 検索バー */}
-            <div style={{ position: 'relative', marginBottom: 8 }}>
-              <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }}>
-                <SearchIcon />
-              </span>
-              <input type="text" value={rawQuery} onChange={e => setRawQuery(e.target.value)}
-                placeholder="銘柄・ネック・お客さん・キャスト・メモで検索"
-                style={{ ...inp, width: '100%', paddingLeft: 40, paddingRight: rawQuery ? 36 : 14 }} />
-              {rawQuery && (
-                <button onClick={() => { setRawQuery(''); setQuery(''); }}
-                  style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#9ca3af', lineHeight: 1 }}>×</button>
-              )}
+            {/* 検索バー + ソート */}
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+              <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
+                <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }}>
+                  <SearchIcon />
+                </span>
+                <input type="text" value={rawQuery} onChange={e => setRawQuery(e.target.value)}
+                  placeholder="銘柄・ネック・お客さん・キャスト・メモ"
+                  style={{ ...inp, width: '100%', paddingLeft: 40, paddingRight: rawQuery ? 36 : 14, boxSizing: 'border-box' }} />
+                {rawQuery && (
+                  <button onClick={() => { setRawQuery(''); setQuery(''); }}
+                    style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#9ca3af', lineHeight: 1 }}>×</button>
+                )}
+              </div>
+              <select value={sortOrder} onChange={e => setSortOrder(e.target.value)}
+                style={{ fontSize: 11, borderRadius: 8, padding: '4px 6px', outline: 'none', flexShrink: 0, background: '#f9fafb', border: '1px solid #e5e7eb', color: '#374151', height: 38 }}>
+                <option value="updated_desc">更新順</option>
+                <option value="date_desc">日付↓</option>
+                <option value="date_asc">日付↑</option>
+                <option value="amount">残量↑</option>
+                <option value="name">名前順</option>
+              </select>
             </div>
 
             {/* フィルタートリガーボタン */}
             <button onClick={() => setShowFilter(true)}
-              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', textAlign: 'left', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 12, cursor: 'pointer' }}>
+              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', textAlign: 'left', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 12, cursor: 'pointer', boxSizing: 'border-box' }}>
               <span style={{ fontSize: 12, fontWeight: 500, color: '#6b7280', flexShrink: 0 }}>絞り込み</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 0, overflow: 'hidden' }}>
-                {neckFilter && <span style={{ fontSize: 11, fontWeight: 'bold', padding: '2px 8px', borderRadius: 20, background: 'rgba(124,58,237,0.1)', color: '#7c3aed', flexShrink: 0 }}>🏷 {neckFilter}</span>}
-                {castFilter && <span style={{ fontSize: 11, fontWeight: 'bold', padding: '2px 8px', borderRadius: 20, background: `${castColor(castFilter)}18`, color: castColor(castFilter), flexShrink: 0 }}>{castFilter}</span>}
-                {(dateFrom || dateTo) && <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: 'rgba(124,58,237,0.1)', color: '#7c3aed', flexShrink: 0 }}>📅 {dateFrom || '…'} 〜 {dateTo || '…'}</span>}
+                {neckFilter && <span style={{ fontSize: 11, fontWeight: 'bold', padding: '2px 8px', borderRadius: 20, background: 'rgba(124,58,237,0.1)', color: '#7c3aed', flexShrink: 0, whiteSpace: 'nowrap' }}>🏷 {neckFilter}</span>}
+                {castFilter && <span style={{ fontSize: 11, fontWeight: 'bold', padding: '2px 8px', borderRadius: 20, background: `${castColor(castFilter)}18`, color: castColor(castFilter), flexShrink: 0, whiteSpace: 'nowrap' }}>{castFilter}</span>}
+                {(dateFrom || dateTo) && <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: 'rgba(124,58,237,0.1)', color: '#7c3aed', flexShrink: 0, whiteSpace: 'nowrap' }}>📅 {dateFrom || '…'} 〜 {dateTo || '…'}</span>}
                 {activeFilterCount === 0 && <span style={{ fontSize: 11, color: '#d1d5db' }}>指名・日付</span>}
               </div>
               {activeFilterCount > 0 && <span style={{ fontSize: 11, padding: '2px 6px', borderRadius: 20, background: '#7c3aed', color: '#fff', fontWeight: 'bold', flexShrink: 0 }}>{activeFilterCount}</span>}
               <span style={{ fontSize: 11, color: '#9ca3af', flexShrink: 0 }}>▼</span>
             </button>
 
-            {isFiltered && (
-              <p style={{ fontSize: 11, marginTop: 6, paddingLeft: 2, color: '#9ca3af' }}>{filtered.length}件表示</p>
-            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
+              {isFiltered && (
+                <span style={{ fontSize: 11, background: 'rgba(124,58,237,0.08)', color: '#7c3aed', padding: '2px 8px', borderRadius: 12, border: '1px solid rgba(124,58,237,0.15)', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                  {filtered.length}件
+                </span>
+              )}
+              <span style={{ fontSize: 11, color: '#9ca3af', whiteSpace: 'nowrap' }}>
+                {isFiltered ? `/ 全${bottles.length}本` : `全${bottles.length}本`}
+              </span>
+              {emptyCount > 0 && (
+                <span style={{ fontSize: 11, background: 'rgba(239,68,68,0.08)', color: '#ef4444', padding: '2px 8px', borderRadius: 12, border: '1px solid rgba(239,68,68,0.15)', whiteSpace: 'nowrap' }}>
+                  空き{emptyCount}本
+                </span>
+              )}
+            </div>
           </>
         )}
       </header>
@@ -460,6 +470,7 @@ export default function App() {
                 <input type="file" accept=".json" style={{ display: 'none' }} onChange={importData} />
               </label>
               <p style={{ fontSize: 11, textAlign: 'center', color: '#d1d5db', margin: 0 }}>※ 復元すると現在のデータは上書きされます</p>
+              <p style={{ fontSize: 11, textAlign: 'center', color: '#d1d5db', margin: '4px 0 0' }}>v{APP_VERSION}</p>
             </div>
           </div>
         </div>
