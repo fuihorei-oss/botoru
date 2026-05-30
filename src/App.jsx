@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { buildSearchIndex, searchBottles } from './utils/search';
 import { castColor, getCastNames } from './utils/castColors';
 import {
@@ -9,6 +9,7 @@ import {
 import BottleCard from './components/BottleCard';
 import BottleForm from './components/BottleForm';
 import CastList from './components/CastList';
+import NeckList from './components/NeckList';
 
 function SearchIcon() {
   return (
@@ -44,8 +45,11 @@ export default function App() {
   const [migrateError, setMigrateError] = useState(null);
 
   const [view, setView]           = useState('bottles');
+  const [rawQuery, setRawQuery]   = useState('');
   const [query, setQuery]         = useState('');
   const [castFilter, setCastFilter] = useState('');
+  const [neckFilter, setNeckFilter] = useState('');
+  const [page, setPage]           = useState(1);
   const [dateFrom, setDateFrom]   = useState('');
   const [dateTo, setDateTo]       = useState('');
   const [showFilter, setShowFilter] = useState(false);
@@ -102,14 +106,24 @@ export default function App() {
     }
   }, [bottles, sortOrder]);
 
+  // デバウンス: 入力後300ms後に検索実行（フリーズ防止）
+  useEffect(() => {
+    const t = setTimeout(() => setQuery(rawQuery), 300);
+    return () => clearTimeout(t);
+  }, [rawQuery]);
+
+  // フィルター変更時にページをリセット
+  useEffect(() => { setPage(1); }, [query, castFilter, neckFilter, dateFrom, dateTo, sortOrder]);
+
   const fuse = useMemo(() => buildSearchIndex(sorted), [sorted]);
   const filtered = useMemo(() => {
     let results = searchBottles(fuse, query, sorted);
     if (castFilter) results = results.filter(b => getCastNames(b).includes(castFilter));
+    if (neckFilter) results = results.filter(b => (b.keepName || '').trim() === neckFilter);
     if (dateFrom)   results = results.filter(b => (b.purchaseDate || '') >= dateFrom);
     if (dateTo)     results = results.filter(b => (b.purchaseDate || '') <= dateTo);
     return results;
-  }, [fuse, query, sorted, castFilter, dateFrom, dateTo]);
+  }, [fuse, query, sorted, castFilter, neckFilter, dateFrom, dateTo]);
 
   async function handleSave(bottle) {
     try {
@@ -170,8 +184,14 @@ export default function App() {
 
   function clearFilters() {
     setCastFilter('');
+    setNeckFilter('');
     setDateFrom('');
     setDateTo('');
+  }
+
+  function handleSelectNeck(name) {
+    setNeckFilter(name);
+    setView('bottles');
   }
 
   function exportData() {
@@ -204,8 +224,12 @@ export default function App() {
     e.target.value = '';
   }
 
+  const PAGE_SIZE = 50;
+  const visibleBottles = filtered.slice(0, page * PAGE_SIZE);
+  const hasMore = filtered.length > page * PAGE_SIZE;
+
   const emptyCount       = bottles.filter(b => (b.remainingAmount ?? 700) === 0).length;
-  const activeFilterCount = (castFilter ? 1 : 0) + (dateFrom || dateTo ? 1 : 0);
+  const activeFilterCount = (castFilter ? 1 : 0) + (neckFilter ? 1 : 0) + (dateFrom || dateTo ? 1 : 0);
   const isFiltered        = !!query || activeFilterCount > 0;
 
   // ── Migration screen ─────────────────────────────────────────────
@@ -256,14 +280,12 @@ export default function App() {
         {/* タブ行 */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
           <div style={{ display: 'flex', borderRadius: 10, overflow: 'hidden', border: '1px solid #e5e7eb', flexShrink: 0 }}>
-            <button onClick={() => setView('bottles')}
-              style={{ padding: '6px 14px', fontSize: 13, fontWeight: 'bold', border: 'none', cursor: 'pointer', background: view === 'bottles' ? '#7c3aed' : '#f9fafb', color: view === 'bottles' ? '#fff' : '#9ca3af' }}>
-              🍾 ボトル
-            </button>
-            <button onClick={() => setView('casts')}
-              style={{ padding: '6px 14px', fontSize: 13, fontWeight: 'bold', border: 'none', cursor: 'pointer', background: view === 'casts' ? '#7c3aed' : '#f9fafb', color: view === 'casts' ? '#fff' : '#9ca3af' }}>
-              👑 キャスト
-            </button>
+            {[['necks','🏷 ネック'],['bottles','🍾 ボトル'],['casts','👑 キャスト']].map(([v, label]) => (
+              <button key={v} onClick={() => setView(v)}
+                style={{ padding: '6px 12px', fontSize: 12, fontWeight: 'bold', border: 'none', cursor: 'pointer', background: view === v ? '#7c3aed' : '#f9fafb', color: view === v ? '#fff' : '#9ca3af' }}>
+                {label}
+              </button>
+            ))}
           </div>
 
           <p style={{ fontSize: 12, flex: 1, minWidth: 0, color: '#9ca3af', margin: 0 }}>
@@ -295,11 +317,11 @@ export default function App() {
               <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }}>
                 <SearchIcon />
               </span>
-              <input type="text" value={query} onChange={e => setQuery(e.target.value)}
+              <input type="text" value={rawQuery} onChange={e => setRawQuery(e.target.value)}
                 placeholder="銘柄・ネック・お客さん・キャスト・メモで検索"
-                style={{ ...inp, width: '100%', paddingLeft: 40, paddingRight: query ? 36 : 14 }} />
-              {query && (
-                <button onClick={() => setQuery('')}
+                style={{ ...inp, width: '100%', paddingLeft: 40, paddingRight: rawQuery ? 36 : 14 }} />
+              {rawQuery && (
+                <button onClick={() => { setRawQuery(''); setQuery(''); }}
                   style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#9ca3af', lineHeight: 1 }}>×</button>
               )}
             </div>
@@ -311,16 +333,9 @@ export default function App() {
                 <span style={{ fontSize: 12, fontWeight: 500, color: '#6b7280' }}>絞り込み</span>
                 {!showFilter && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 0 }}>
-                    {castFilter && (
-                      <span style={{ fontSize: 11, fontWeight: 'bold', padding: '2px 8px', borderRadius: 20, background: `${castColor(castFilter)}18`, color: castColor(castFilter), flexShrink: 0 }}>
-                        {castFilter}
-                      </span>
-                    )}
-                    {(dateFrom || dateTo) && (
-                      <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: 'rgba(124,58,237,0.1)', color: '#7c3aed', flexShrink: 0 }}>
-                        📅 {dateFrom || '…'} 〜 {dateTo || '…'}
-                      </span>
-                    )}
+                    {neckFilter && <span style={{ fontSize: 11, fontWeight: 'bold', padding: '2px 8px', borderRadius: 20, background: 'rgba(124,58,237,0.1)', color: '#7c3aed', flexShrink: 0 }}>🏷 {neckFilter}</span>}
+                    {castFilter && <span style={{ fontSize: 11, fontWeight: 'bold', padding: '2px 8px', borderRadius: 20, background: `${castColor(castFilter)}18`, color: castColor(castFilter), flexShrink: 0 }}>{castFilter}</span>}
+                    {(dateFrom || dateTo) && <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: 'rgba(124,58,237,0.1)', color: '#7c3aed', flexShrink: 0 }}>📅 {dateFrom || '…'} 〜 {dateTo || '…'}</span>}
                     {activeFilterCount === 0 && <span style={{ fontSize: 11, color: '#d1d5db' }}>指名・日付</span>}
                   </div>
                 )}
@@ -389,10 +404,21 @@ export default function App() {
               {isFiltered ? '該当するボトルが見つかりません' : 'ボトルがまだ登録されていません'}
             </div>
           ) : (
-            filtered.map(bottle => <BottleCard key={bottle.id} bottle={bottle} onClick={openEdit} />)
+            <>
+              {visibleBottles.map(bottle => <BottleCard key={bottle.id} bottle={bottle} onClick={openEdit} />)}
+              {hasMore && (
+                <button onClick={() => setPage(p => p + 1)}
+                  style={{ padding: '12px', borderRadius: 12, background: '#f9fafb', border: '1px solid #e5e7eb', color: '#6b7280', fontSize: 13, cursor: 'pointer' }}>
+                  もっと見る（残り{filtered.length - page * PAGE_SIZE}件）
+                </button>
+              )}
+            </>
           )}
         </main>
       )}
+
+      {/* ネックビュー */}
+      {view === 'necks' && <NeckList bottles={bottles} onSelectNeck={handleSelectNeck} />}
 
       {/* キャストビュー */}
       {view === 'casts' && <CastList bottles={bottles} casts={casts} onSelectCast={handleSelectCast} />}
