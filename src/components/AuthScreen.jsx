@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { version } from '../../package.json';
 
 const HASH = '03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4';
 const SESSION_KEY = 'botoru_auth';
@@ -38,6 +39,7 @@ export default function AuthScreen({ onAuth }) {
           <div style={{ fontSize: 48, marginBottom: 12 }}>🍾</div>
           <h1 style={{ fontSize: 22, fontWeight: 900, color: '#111827', margin: 0 }}>ボトル管理</h1>
           <p style={{ fontSize: 13, color: '#9ca3af', marginTop: 4 }}>パスワードを入力してください</p>
+          <p style={{ fontSize: 11, color: '#d1d5db', marginTop: 2 }}>v{version}</p>
         </div>
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
