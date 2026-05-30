@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { version } from '../../package.json';
 
-const HASH = '03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4';
+const HASH = import.meta.env.VITE_AUTH_HASH;
 const SESSION_KEY = 'botoru_auth';
 
 async function sha256(str) {
