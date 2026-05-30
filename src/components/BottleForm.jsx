@@ -5,20 +5,16 @@ import { castColor } from '../utils/castColors';
 
 const MAX_G   = 700;
 const MAX_CM  = 30;
-
 const QUICK_G  = [700, 600, 500, 400, 300, 200, 100, 0];
 const QUICK_CM = [30, 20, 10, 5, 1, 0.5, 0];
 
 function AmountBar({ value, unit }) {
   const max = unit === 'cm' ? MAX_CM : MAX_G;
   const pct = Math.min(100, Math.max(0, ((value ?? max) / max) * 100));
-  const color = pct > 60 ? '#34d399' : pct > 30 ? '#fbbf24' : '#f87171';
+  const color = pct > 60 ? '#10b981' : pct > 30 ? '#f59e0b' : '#ef4444';
   return (
-    <div className="relative w-full h-3 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.1)' }}>
-      <div
-        className="absolute left-0 top-0 h-full rounded-full transition-all duration-300"
-        style={{ width: `${pct}%`, backgroundColor: color }}
-      />
+    <div style={{ width: '100%', height: 10, borderRadius: 5, background: '#f3f4f6', overflow: 'hidden' }}>
+      <div style={{ height: '100%', borderRadius: 5, background: color, width: `${pct}%`, transition: 'width 0.3s' }} />
     </div>
   );
 }
@@ -36,178 +32,117 @@ export default function BottleForm({ bottle, casts = [], onSave, onDelete, onClo
   const [castInput, setCastInput] = useState('');
 
   const [form, setForm] = useState({
-    name: '',
-    keepName: '',
-    purchaseDate: todayString(),
-    remainingAmount: MAX_G,
-    remainingUnit: 'g',
-    isPhysical: false,
-    isUnopened: false,
-    customerName: '',
-    castName: [],
-    notes: '',
-    ...bottle,
-    castName: normalizeCastName(bottle),
+    name: '', keepName: '', purchaseDate: todayString(),
+    remainingAmount: MAX_G, remainingUnit: 'g',
+    isPhysical: false, isUnopened: false,
+    customerName: '', castName: [], notes: '',
+    ...bottle, castName: normalizeCastName(bottle),
   });
 
   const dayLabel = getDayOfWeek(form.purchaseDate);
   const unit = form.remainingUnit || 'g';
   const quickOptions = unit === 'cm' ? QUICK_CM : QUICK_G;
 
-  function set(field, value) {
-    setForm(f => ({ ...f, [field]: value }));
-  }
+  const inp = { background: '#f9fafb', border: '1px solid #e5e7eb', color: '#111827', borderRadius: 12, padding: '10px 16px', width: '100%', outline: 'none', fontSize: 14, boxSizing: 'border-box' };
 
-  function switchUnit(newUnit) {
-    set('remainingUnit', newUnit);
-    set('remainingAmount', newUnit === 'cm' ? MAX_CM : MAX_G);
-  }
-
+  function set(field, value) { setForm(f => ({ ...f, [field]: value })); }
+  function switchUnit(u) { set('remainingUnit', u); set('remainingAmount', u === 'cm' ? MAX_CM : MAX_G); }
   function toggleCast(name) {
-    const current = form.castName;
-    if (current.includes(name)) {
-      set('castName', current.filter(n => n !== name));
-    } else {
-      set('castName', [...current, name]);
-    }
+    const cur = form.castName;
+    set('castName', cur.includes(name) ? cur.filter(n => n !== name) : [...cur, name]);
   }
-
   function addCastInput() {
     const name = castInput.trim();
-    if (name && !form.castName.includes(name)) {
-      set('castName', [...form.castName, name]);
-    }
+    if (name && !form.castName.includes(name)) set('castName', [...form.castName, name]);
     setCastInput('');
   }
-
   function handleSubmit(e) {
     e.preventDefault();
     if (!form.name.trim()) return;
     onSave({ ...form, id: form.id || generateId(), updatedAt: Date.now() });
   }
 
-  const inputStyle  = { background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)' };
-  const activeBtn   = { background: '#7c3aed', color: 'white', border: '1px solid #7c3aed' };
-  const inactiveBtn = { background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.12)' };
+  const activeChip  = (cc) => ({ background: cc, color: '#fff', border: `1px solid ${cc}`, borderRadius: 20, padding: '4px 14px', fontSize: 13, fontWeight: 'bold', cursor: 'pointer' });
+  const inactiveChip = (cc) => ({ background: '#f9fafb', color: cc, border: `1px solid ${cc}60`, borderRadius: 20, padding: '4px 14px', fontSize: 13, fontWeight: 'bold', cursor: 'pointer' });
+  const quickBtn = (active) => ({ background: active ? '#7c3aed' : '#f3f4f6', color: active ? '#fff' : '#374151', border: active ? '1px solid #7c3aed' : '1px solid #e5e7eb', borderRadius: 8, padding: '4px 12px', fontSize: 13, cursor: 'pointer' });
+  const toggleBtn = (active, activeColor, activeBg) => ({
+    flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+    padding: '10px 12px', borderRadius: 12, fontSize: 13, fontWeight: 500, cursor: 'pointer',
+    background: active ? activeBg : '#f9fafb',
+    border: active ? `1px solid ${activeColor}` : '1px solid #e5e7eb',
+    color: active ? activeColor : '#9ca3af',
+  });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-
-      <div className="relative w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl overflow-hidden shadow-2xl"
-        style={{ background: 'linear-gradient(145deg, #1a1a2e 0%, #16213e 100%)', border: '1px solid rgba(255,255,255,0.1)' }}>
-
-        <div className="flex items-center justify-between px-5 pt-5 pb-3">
-          <h2 className="text-lg font-bold text-white">{isEdit ? 'ボトル編集' : 'ボトル追加'}</h2>
-          <button onClick={onClose} className="text-white/50 hover:text-white text-2xl leading-none">×</button>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)' }} onClick={onClose} />
+      <div style={{ position: 'relative', width: '100%', maxWidth: 512, borderRadius: '20px 20px 0 0', background: '#ffffff', boxShadow: '0 -4px 32px rgba(0,0,0,0.12)', overflow: 'hidden' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 20px 12px' }}>
+          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 'bold', color: '#111827' }}>{isEdit ? 'ボトル編集' : 'ボトル追加'}</h2>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 24, cursor: 'pointer', color: '#9ca3af', lineHeight: 1 }}>×</button>
         </div>
 
-        <form onSubmit={handleSubmit} className="px-5 pb-5 space-y-4 max-h-[80vh] overflow-y-auto">
+        <form onSubmit={handleSubmit} style={{ padding: '0 20px 20px', display: 'flex', flexDirection: 'column', gap: 16, maxHeight: '80vh', overflowY: 'auto' }}>
 
           {/* 銘柄 */}
           <div>
-            <label className="block text-xs text-white/60 mb-1">銘柄 <span className="text-pink-400">*</span></label>
-            <input
-              required
-              value={form.name}
-              onChange={e => set('name', e.target.value)}
-              placeholder="例：山崎12年、ドンペリ..."
-              className="w-full rounded-xl px-4 py-2.5 text-white placeholder-white/30 outline-none focus:ring-2 focus:ring-purple-500"
-              style={inputStyle}
-            />
+            <label style={{ display: 'block', fontSize: 12, color: '#6b7280', marginBottom: 4 }}>銘柄 <span style={{ color: '#ef4444' }}>*</span></label>
+            <input required value={form.name} onChange={e => set('name', e.target.value)} placeholder="例：山崎12年、ドンペリ..." style={inp} />
           </div>
 
           {/* ネック名 */}
           <div>
-            <label className="block text-xs text-white/60 mb-1">ネック名</label>
-            <input
-              value={form.keepName}
-              onChange={e => set('keepName', e.target.value)}
-              placeholder="例：田中様ネック、VIPルーム用..."
-              className="w-full rounded-xl px-4 py-2.5 text-white placeholder-white/30 outline-none focus:ring-2 focus:ring-purple-500"
-              style={inputStyle}
-            />
+            <label style={{ display: 'block', fontSize: 12, color: '#6b7280', marginBottom: 4 }}>ネック名</label>
+            <input value={form.keepName} onChange={e => set('keepName', e.target.value)} placeholder="例：田中様ネック..." style={inp} />
           </div>
 
           {/* 保管状況 */}
           <div>
-            <label className="block text-xs text-white/60 mb-2">保管状況</label>
-            <div className="flex gap-2">
-              <button type="button" onClick={() => set('isPhysical', !form.isPhysical)}
-                className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl font-medium text-sm transition-all"
-                style={form.isPhysical
-                  ? { background: 'rgba(52,211,153,0.15)', border: '1px solid rgba(52,211,153,0.5)', color: '#34d399' }
-                  : { background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.5)' }
-                }>
-                <span>📦</span> 現物保管
+            <label style={{ display: 'block', fontSize: 12, color: '#6b7280', marginBottom: 8 }}>保管状況</label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button type="button" onClick={() => set('isPhysical', !form.isPhysical)} style={toggleBtn(form.isPhysical, '#059669', 'rgba(16,185,129,0.1)')}>
+                📦 現物保管
               </button>
-              <button type="button" onClick={() => set('isUnopened', !form.isUnopened)}
-                className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl font-medium text-sm transition-all"
-                style={form.isUnopened
-                  ? { background: 'rgba(96,165,250,0.15)', border: '1px solid rgba(96,165,250,0.5)', color: '#60a5fa' }
-                  : { background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.5)' }
-                }>
-                <span>🔒</span> 未開封
+              <button type="button" onClick={() => set('isUnopened', !form.isUnopened)} style={toggleBtn(form.isUnopened, '#2563eb', 'rgba(59,130,246,0.1)')}>
+                🔒 未開封
               </button>
             </div>
           </div>
 
-          {/* 入れた日付 */}
+          {/* 日付 */}
           <div>
-            <label className="block text-xs text-white/60 mb-1">入れた日付</label>
-            <div className="flex items-center gap-3">
-              <input
-                type="date"
-                value={form.purchaseDate}
-                onChange={e => set('purchaseDate', e.target.value)}
-                className="flex-1 rounded-xl px-4 py-2.5 text-white outline-none focus:ring-2 focus:ring-purple-500"
-                style={{ ...inputStyle, colorScheme: 'dark' }}
-              />
-              {dayLabel && (
-                <span className="text-lg font-bold text-purple-300 w-8 text-center">({dayLabel})</span>
-              )}
+            <label style={{ display: 'block', fontSize: 12, color: '#6b7280', marginBottom: 4 }}>入れた日付</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <input type="date" value={form.purchaseDate} onChange={e => set('purchaseDate', e.target.value)}
+                style={{ ...inp, flex: 1, colorScheme: 'light' }} />
+              {dayLabel && <span style={{ fontSize: 16, fontWeight: 'bold', color: '#7c3aed', width: 32, textAlign: 'center' }}>({dayLabel})</span>}
             </div>
           </div>
 
           {/* 残量 */}
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-xs text-white/60">残量</label>
-              <div className="flex rounded-lg overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.15)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <label style={{ fontSize: 12, color: '#6b7280' }}>残量</label>
+              <div style={{ display: 'flex', borderRadius: 8, overflow: 'hidden', border: '1px solid #e5e7eb' }}>
                 {['g', 'cm'].map(u => (
                   <button key={u} type="button" onClick={() => switchUnit(u)}
-                    className="px-3 py-1 text-xs font-bold transition-all"
-                    style={unit === u
-                      ? { background: '#7c3aed', color: 'white' }
-                      : { background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.5)' }
-                    }>
+                    style={{ padding: '4px 12px', fontSize: 12, fontWeight: 'bold', cursor: 'pointer', border: 'none', background: unit === u ? '#7c3aed' : '#f9fafb', color: unit === u ? '#fff' : '#9ca3af' }}>
                     {u}
                   </button>
                 ))}
               </div>
             </div>
-
-            <div className="flex items-center gap-3 mb-2">
-              <input
-                type="number"
-                min={0}
-                step={unit === 'cm' ? 0.5 : 1}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+              <input type="number" min={0} step={unit === 'cm' ? 0.5 : 1}
                 value={form.remainingAmount}
                 onChange={e => set('remainingAmount', Math.max(0, Number(e.target.value)))}
-                className="w-28 rounded-xl px-4 py-2.5 text-white text-center font-bold text-lg outline-none focus:ring-2 focus:ring-purple-500"
-                style={inputStyle}
-              />
-              <span className="text-white/60 font-medium">{unit}</span>
+                style={{ ...inp, width: 112, textAlign: 'center', fontWeight: 'bold', fontSize: 18 }} />
+              <span style={{ color: '#6b7280', fontWeight: 500 }}>{unit}</span>
             </div>
-
             <AmountBar value={form.remainingAmount} unit={unit} />
-
-            <div className="flex flex-wrap gap-1.5 mt-2">
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
               {quickOptions.map(v => (
-                <button key={v} type="button"
-                  onClick={() => set('remainingAmount', v)}
-                  className="px-3 py-1 rounded-lg text-sm font-medium transition-all"
-                  style={form.remainingAmount === v ? activeBtn : inactiveBtn}>
+                <button key={v} type="button" onClick={() => set('remainingAmount', v)} style={quickBtn(form.remainingAmount === v)}>
                   {v}{unit}
                 </button>
               ))}
@@ -216,91 +151,59 @@ export default function BottleForm({ bottle, casts = [], onSave, onDelete, onClo
 
           {/* お客さん名 */}
           <div>
-            <label className="block text-xs text-white/60 mb-1">お客さん名</label>
-            <input
-              value={form.customerName}
-              onChange={e => set('customerName', e.target.value)}
-              placeholder="田中様"
-              className="w-full rounded-xl px-4 py-2.5 text-white placeholder-white/30 outline-none focus:ring-2 focus:ring-purple-500"
-              style={inputStyle}
-            />
+            <label style={{ display: 'block', fontSize: 12, color: '#6b7280', marginBottom: 4 }}>お客さん名</label>
+            <input value={form.customerName} onChange={e => set('customerName', e.target.value)} placeholder="田中様" style={inp} />
           </div>
 
-          {/* 指名の子（複数選択・折りたたみ） */}
-          <div className="rounded-xl overflow-hidden"
-            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)' }}>
-
-            {/* ヘッダー行 */}
-            <div className="flex items-center gap-2 px-3 pt-3 pb-2">
-              <label className="text-xs text-white/60 flex-shrink-0">指名の子</label>
-              {form.castName.length > 0 && (
-                <span className="text-xs text-white/40 flex-shrink-0">{form.castName.length}名</span>
+          {/* 指名の子 */}
+          <div style={{ borderRadius: 12, background: '#f9fafb', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px 8px' }}>
+              <label style={{ fontSize: 12, color: '#6b7280', flexShrink: 0 }}>指名の子</label>
+              {form.castName.length > 0 && <span style={{ fontSize: 12, color: '#9ca3af' }}>{form.castName.length}名</span>}
+              {casts.length > 0 && (
+                <button type="button" onClick={() => setShowCastChips(v => !v)}
+                  style={{ marginLeft: 'auto', fontSize: 12, padding: '2px 10px', borderRadius: 20, background: '#fff', border: '1px solid #e5e7eb', color: '#6b7280', cursor: 'pointer' }}>
+                  {showCastChips ? '▲ 閉じる' : '▼ 選択'}
+                </button>
               )}
-              <button
-                type="button"
-                onClick={() => setShowCastChips(v => !v)}
-                className="ml-auto text-xs px-2 py-0.5 rounded-full flex-shrink-0 transition-all"
-                style={{ color: 'rgba(255,255,255,0.35)', background: 'rgba(255,255,255,0.06)' }}
-              >
-                {showCastChips ? '▲ 閉じる' : '▼ 選択'}
-              </button>
             </div>
-
-            <div className="px-3 pb-3 space-y-2">
-              {/* 選択済みチップ */}
+            <div style={{ padding: '0 14px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
               {form.castName.length > 0 && (
-                <div className="flex flex-wrap gap-1.5">
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                   {form.castName.map(name => {
                     const cc = castColor(name);
                     return (
-                      <button key={name} type="button"
-                        onClick={() => toggleCast(name)}
-                        className="flex items-center gap-1 px-3 py-1 rounded-full text-sm font-bold transition-all"
-                        style={{ background: cc, color: '#0d0d1a' }}>
-                        {name}
-                        <span style={{ opacity: 0.7, fontSize: 12 }}>×</span>
+                      <button key={name} type="button" onClick={() => toggleCast(name)}
+                        style={{ ...activeChip(cc), display: 'flex', alignItems: 'center', gap: 4 }}>
+                        {name} <span style={{ opacity: 0.7, fontSize: 11 }}>×</span>
                       </button>
                     );
                   })}
                 </div>
               )}
-
-              {/* 展開時：登録済みキャストチップ */}
               {showCastChips && (
-                <div className="space-y-2 pt-1 border-t" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingTop: 8, borderTop: '1px solid #e5e7eb' }}>
                   {casts.length > 0 && (
-                    <div className="flex flex-wrap gap-2 pt-2">
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                       {casts.map(name => {
                         const cc = castColor(name);
                         const isActive = form.castName.includes(name);
                         return (
-                          <button key={name} type="button"
-                            onClick={() => toggleCast(name)}
-                            className="px-3.5 py-1.5 rounded-full text-sm font-bold transition-all"
-                            style={isActive
-                              ? { background: cc, color: '#0d0d1a' }
-                              : { background: 'rgba(255,255,255,0.06)', color: cc, border: `1px solid ${cc}60` }
-                            }>
+                          <button key={name} type="button" onClick={() => toggleCast(name)}
+                            style={isActive ? activeChip(cc) : inactiveChip(cc)}>
                             {name}
                           </button>
                         );
                       })}
                     </div>
                   )}
-
-                  {/* 未登録の名前を直接追加 */}
-                  <div className="flex gap-2 pt-1">
-                    <input
-                      value={castInput}
-                      onChange={e => setCastInput(e.target.value)}
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <input value={castInput} onChange={e => setCastInput(e.target.value)}
                       onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addCastInput())}
                       placeholder="直接入力して追加..."
-                      className="flex-1 rounded-xl px-3 py-2 text-sm text-white placeholder-white/25 outline-none"
-                      style={inputStyle}
-                    />
+                      style={{ ...inp, flex: 1, fontSize: 13 }} />
                     <button type="button" onClick={addCastInput}
-                      className="px-3 py-2 rounded-xl text-sm font-bold text-white flex-shrink-0"
-                      style={{ background: 'rgba(124,58,237,0.4)' }}>
+                      style={{ padding: '8px 14px', borderRadius: 10, background: 'rgba(124,58,237,0.1)', color: '#7c3aed', border: '1px solid rgba(124,58,237,0.2)', fontSize: 13, cursor: 'pointer' }}>
                       追加
                     </button>
                   </div>
@@ -311,29 +214,22 @@ export default function BottleForm({ bottle, casts = [], onSave, onDelete, onClo
 
           {/* メモ */}
           <div>
-            <label className="block text-xs text-white/60 mb-1">メモ</label>
-            <textarea
-              value={form.notes}
-              onChange={e => set('notes', e.target.value)}
-              rows={2}
+            <label style={{ display: 'block', fontSize: 12, color: '#6b7280', marginBottom: 4 }}>メモ</label>
+            <textarea value={form.notes} onChange={e => set('notes', e.target.value)} rows={2}
               placeholder="自由メモ..."
-              className="w-full rounded-xl px-4 py-2.5 text-white placeholder-white/30 outline-none focus:ring-2 focus:ring-purple-500 resize-none"
-              style={inputStyle}
-            />
+              style={{ ...inp, resize: 'none' }} />
           </div>
 
-          {/* 保存・削除 */}
-          <div className="flex gap-3 pt-2">
+          {/* ボタン */}
+          <div style={{ display: 'flex', gap: 10, paddingTop: 4 }}>
             {isEdit && (
               <button type="button" onClick={() => onDelete(bottle.id)}
-                className="px-4 py-2.5 rounded-xl text-red-400 font-medium transition-all"
-                style={{ border: '1px solid rgba(248,113,113,0.3)' }}>
+                style={{ padding: '12px 16px', borderRadius: 12, color: '#ef4444', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)', cursor: 'pointer', fontSize: 14 }}>
                 削除
               </button>
             )}
             <button type="submit"
-              className="flex-1 py-2.5 rounded-xl font-bold text-white transition-all hover:opacity-90 active:scale-95"
-              style={{ background: 'linear-gradient(135deg, #7c3aed, #db2777)' }}>
+              style={{ flex: 1, padding: '12px', borderRadius: 12, fontWeight: 'bold', fontSize: 15, color: '#fff', border: 'none', cursor: 'pointer', background: 'linear-gradient(135deg, #7c3aed, #db2777)' }}>
               {isEdit ? '保存' : '追加'}
             </button>
           </div>

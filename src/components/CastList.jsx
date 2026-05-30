@@ -6,51 +6,41 @@ function CastCard({ stat, onSelect }) {
   const emptyCount = stat.bottles.filter(b => (b.remainingAmount ?? 700) === 0).length;
 
   return (
-    <button
-      onClick={onSelect}
-      className="w-full text-left rounded-2xl p-4 transition-all duration-200 hover:scale-[1.01] active:scale-[0.99]"
+    <button onClick={onSelect}
       style={{
-        background: `linear-gradient(145deg, ${cc}18, ${cc}08)`,
-        border: `1px solid ${cc}35`,
+        width: '100%', textAlign: 'left', borderRadius: 16, padding: 16,
+        background: '#ffffff', border: `1px solid ${cc}30`,
+        cursor: 'pointer', boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+        transition: 'box-shadow 0.15s',
       }}
+      onMouseOver={e => e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)'}
+      onMouseOut={e => e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.06)'}
     >
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div
-            className="w-10 h-10 rounded-full flex items-center justify-center font-black text-base flex-shrink-0"
-            style={{ background: `${cc}28`, color: cc }}
-          >
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ width: 40, height: 40, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 16, background: `${cc}18`, color: cc, flexShrink: 0 }}>
             {stat.name[0]}
           </div>
           <div>
-            <div className="font-bold text-white text-base">{stat.name}</div>
-            <div className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.45)' }}>
+            <div style={{ fontWeight: 'bold', color: '#111827', fontSize: 15 }}>{stat.name}</div>
+            <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>
               {stat.bottles.length}本
-              {emptyCount > 0 && (
-                <span style={{ color: '#f87171', marginLeft: 6 }}>空き{emptyCount}本</span>
-              )}
+              {emptyCount > 0 && <span style={{ color: '#ef4444', marginLeft: 8 }}>空き{emptyCount}本</span>}
             </div>
           </div>
         </div>
-        <div className="text-white/30 text-lg">›</div>
+        <div style={{ color: '#d1d5db', fontSize: 18 }}>›</div>
       </div>
 
       {stat.bottles.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 mt-3">
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 12 }}>
           {stat.bottles.slice(0, 5).map(b => (
-            <span
-              key={b.id}
-              className="text-xs px-2 py-0.5 rounded-full"
-              style={{ background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.65)' }}
-            >
+            <span key={b.id} style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: '#f5f5f7', color: '#6b7280', border: '1px solid #e5e7eb' }}>
               {b.name}
             </span>
           ))}
           {stat.bottles.length > 5 && (
-            <span
-              className="text-xs px-2 py-0.5 rounded-full"
-              style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.35)' }}
-            >
+            <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: '#f5f5f7', color: '#9ca3af' }}>
               他{stat.bottles.length - 5}本
             </span>
           )}
@@ -64,15 +54,9 @@ export default function CastList({ bottles, casts, onSelectCast }) {
   const [castQuery, setCastQuery] = useState('');
 
   const castStats = useMemo(() => {
-    const allNames = new Set([
-      ...casts,
-      ...bottles.flatMap(b => getCastNames(b)),
-    ]);
+    const allNames = new Set([...casts, ...bottles.flatMap(b => getCastNames(b))]);
     return [...allNames]
-      .map(name => ({
-        name,
-        bottles: bottles.filter(b => getCastNames(b).includes(name)),
-      }))
+      .map(name => ({ name, bottles: bottles.filter(b => getCastNames(b).includes(name)) }))
       .sort((a, b) => b.bottles.length - a.bottles.length);
   }, [casts, bottles]);
 
@@ -82,23 +66,19 @@ export default function CastList({ bottles, casts, onSelectCast }) {
 
   return (
     <>
-      <div className="px-4 mb-3">
-        <input
-          type="text"
-          value={castQuery}
-          onChange={e => setCastQuery(e.target.value)}
+      <div style={{ padding: '0 16px 12px' }}>
+        <input type="text" value={castQuery} onChange={e => setCastQuery(e.target.value)}
           placeholder="キャスト名で検索..."
-          className="w-full rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/30 outline-none"
           style={{
-            background: 'rgba(255,255,255,0.08)',
-            border: '1px solid rgba(255,255,255,0.15)',
+            width: '100%', padding: '10px 16px', borderRadius: 12, fontSize: 14,
+            background: '#ffffff', color: '#111827', border: '1px solid #e5e7eb',
+            outline: 'none', boxSizing: 'border-box',
           }}
         />
       </div>
-
-      <main className="flex-1 px-4 pb-28 space-y-3">
+      <main style={{ flex: 1, padding: '0 16px 112px', display: 'flex', flexDirection: 'column', gap: 10 }}>
         {filtered.length === 0 ? (
-          <div className="text-center py-20" style={{ color: 'rgba(255,255,255,0.3)' }}>
+          <div style={{ textAlign: 'center', padding: '80px 0', color: '#9ca3af' }}>
             {castQuery ? '該当するキャストが見つかりません' : 'キャストがまだ登録されていません'}
           </div>
         ) : (
