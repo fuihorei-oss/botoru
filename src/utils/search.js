@@ -365,11 +365,19 @@ function buildSearchText(bottle) {
   return parts.filter(Boolean).join(' ');
 }
 
+const _textCache = new Map();
+
 export function buildSearchIndex(bottles) {
-  const enriched = bottles.map(b => ({
-    ...b,
-    _searchText: buildSearchText(b),
-  }));
+  const enriched = bottles.map(b => {
+    const key = `${b.id}:${b.updatedAt ?? ''}`;
+    let text = _textCache.get(key);
+    if (!text) {
+      text = buildSearchText(b);
+      _textCache.set(key, text);
+      if (_textCache.size > 6000) _textCache.delete(_textCache.keys().next().value);
+    }
+    return { ...b, _searchText: text };
+  });
 
   return new Fuse(enriched, {
     keys: [
