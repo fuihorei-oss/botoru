@@ -275,7 +275,7 @@ export default function App() {
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', maxWidth: 640, margin: '0 auto' }}>
 
       {/* ヘッダー */}
-      <header style={{ position: 'sticky', top: 0, zIndex: 30, padding: '14px 16px 12px', background: '#fff', borderBottom: '1px solid #e5e7eb' }}>
+      <header style={{ position: 'sticky', top: 0, zIndex: 30, padding: 'calc(14px + var(--sat)) 16px 12px', background: '#fff', borderBottom: '1px solid #e5e7eb' }}>
 
         {/* タブ行 */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
@@ -326,68 +326,19 @@ export default function App() {
               )}
             </div>
 
-            {/* フィルターパネル */}
-            <div style={{ borderRadius: 12, background: '#f9fafb', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
-              <button onClick={() => setShowFilter(v => !v)}
-                style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer' }}>
-                <span style={{ fontSize: 12, fontWeight: 500, color: '#6b7280' }}>絞り込み</span>
-                {!showFilter && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 0 }}>
-                    {neckFilter && <span style={{ fontSize: 11, fontWeight: 'bold', padding: '2px 8px', borderRadius: 20, background: 'rgba(124,58,237,0.1)', color: '#7c3aed', flexShrink: 0 }}>🏷 {neckFilter}</span>}
-                    {castFilter && <span style={{ fontSize: 11, fontWeight: 'bold', padding: '2px 8px', borderRadius: 20, background: `${castColor(castFilter)}18`, color: castColor(castFilter), flexShrink: 0 }}>{castFilter}</span>}
-                    {(dateFrom || dateTo) && <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: 'rgba(124,58,237,0.1)', color: '#7c3aed', flexShrink: 0 }}>📅 {dateFrom || '…'} 〜 {dateTo || '…'}</span>}
-                    {activeFilterCount === 0 && <span style={{ fontSize: 11, color: '#d1d5db' }}>指名・日付</span>}
-                  </div>
-                )}
-                {activeFilterCount > 0 && !showFilter && (
-                  <span style={{ fontSize: 11, padding: '2px 6px', borderRadius: 20, background: '#7c3aed', color: '#fff', fontWeight: 'bold', flexShrink: 0 }}>{activeFilterCount}</span>
-                )}
-                <span style={{ marginLeft: 'auto', fontSize: 11, color: '#9ca3af', flexShrink: 0 }}>{showFilter ? '▲' : '▼'}</span>
-              </button>
-
-              {showFilter && (
-                <div style={{ padding: '0 12px 12px', display: 'flex', flexDirection: 'column', gap: 14, borderTop: '1px solid #e5e7eb' }}>
-                  <div style={{ paddingTop: 12 }}>
-                    <p style={{ fontSize: 11, color: '#9ca3af', margin: '0 0 8px' }}>指名の子</p>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                      <button onClick={() => setCastFilter('')}
-                        style={{ padding: '5px 14px', borderRadius: 20, fontSize: 13, fontWeight: 'bold', cursor: 'pointer', border: 'none', background: !castFilter ? '#7c3aed' : '#f3f4f6', color: !castFilter ? '#fff' : '#6b7280' }}>
-                        すべて
-                      </button>
-                      {casts.map(name => {
-                        const cc = castColor(name); const isActive = castFilter === name;
-                        return (
-                          <button key={name} onClick={() => setCastFilter(isActive ? '' : name)}
-                            style={{ padding: '5px 14px', borderRadius: 20, fontSize: 13, fontWeight: 'bold', cursor: 'pointer', background: isActive ? cc : '#f3f4f6', color: isActive ? '#fff' : cc, border: `1px solid ${cc}40` }}>
-                            {name}
-                          </button>
-                        );
-                      })}
-                      <button onClick={() => setShowCastMgr(true)}
-                        style={{ padding: '5px 14px', borderRadius: 20, fontSize: 13, cursor: 'pointer', background: '#f3f4f6', color: '#9ca3af', border: '1px solid #e5e7eb' }}>
-                        ＋ 管理
-                      </button>
-                    </div>
-                  </div>
-
-                  <div>
-                    <p style={{ fontSize: 11, color: '#9ca3af', margin: '0 0 8px' }}>入れた日付</p>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} style={{ ...inp, flex: 1 }} />
-                      <span style={{ color: '#d1d5db', flexShrink: 0 }}>〜</span>
-                      <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} style={{ ...inp, flex: 1 }} />
-                    </div>
-                  </div>
-
-                  {activeFilterCount > 0 && (
-                    <button onClick={clearFilters}
-                      style={{ padding: '8px', borderRadius: 10, fontSize: 13, cursor: 'pointer', background: 'rgba(239,68,68,0.06)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.15)' }}>
-                      フィルターをクリア
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
+            {/* フィルタートリガーボタン */}
+            <button onClick={() => setShowFilter(true)}
+              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', textAlign: 'left', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 12, cursor: 'pointer' }}>
+              <span style={{ fontSize: 12, fontWeight: 500, color: '#6b7280', flexShrink: 0 }}>絞り込み</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 0, overflow: 'hidden' }}>
+                {neckFilter && <span style={{ fontSize: 11, fontWeight: 'bold', padding: '2px 8px', borderRadius: 20, background: 'rgba(124,58,237,0.1)', color: '#7c3aed', flexShrink: 0 }}>🏷 {neckFilter}</span>}
+                {castFilter && <span style={{ fontSize: 11, fontWeight: 'bold', padding: '2px 8px', borderRadius: 20, background: `${castColor(castFilter)}18`, color: castColor(castFilter), flexShrink: 0 }}>{castFilter}</span>}
+                {(dateFrom || dateTo) && <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: 'rgba(124,58,237,0.1)', color: '#7c3aed', flexShrink: 0 }}>📅 {dateFrom || '…'} 〜 {dateTo || '…'}</span>}
+                {activeFilterCount === 0 && <span style={{ fontSize: 11, color: '#d1d5db' }}>指名・日付</span>}
+              </div>
+              {activeFilterCount > 0 && <span style={{ fontSize: 11, padding: '2px 6px', borderRadius: 20, background: '#7c3aed', color: '#fff', fontWeight: 'bold', flexShrink: 0 }}>{activeFilterCount}</span>}
+              <span style={{ fontSize: 11, color: '#9ca3af', flexShrink: 0 }}>▼</span>
+            </button>
 
             {isFiltered && (
               <p style={{ fontSize: 11, marginTop: 6, paddingLeft: 2, color: '#9ca3af' }}>{filtered.length}件表示</p>
@@ -398,7 +349,7 @@ export default function App() {
 
       {/* ボトルリスト */}
       {view === 'bottles' && (
-        <main style={{ flex: 1, padding: '12px 16px 112px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <main style={{ flex: 1, padding: '12px 16px calc(100px + var(--sab))', display: 'flex', flexDirection: 'column', gap: 10 }}>
           {filtered.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '80px 0', color: '#9ca3af' }}>
               {isFiltered ? '該当するボトルが見つかりません' : 'ボトルがまだ登録されていません'}
@@ -426,12 +377,72 @@ export default function App() {
       {/* FAB */}
       {view === 'bottles' && (
         <button onClick={openAdd}
-          style={{ position: 'fixed', bottom: 24, right: 20, width: 56, height: 56, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', cursor: 'pointer', zIndex: 40, background: 'linear-gradient(135deg, #7c3aed, #db2777)', boxShadow: '0 4px 20px rgba(124,58,237,0.4)', color: '#fff' }}>
+          style={{ position: 'fixed', bottom: 'calc(24px + var(--sab))', right: 20, width: 56, height: 56, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', cursor: 'pointer', zIndex: 40, background: 'linear-gradient(135deg, #7c3aed, #db2777)', boxShadow: '0 4px 20px rgba(124,58,237,0.4)', color: '#fff' }}>
           <PlusIcon />
         </button>
       )}
 
       {showForm && <BottleForm bottle={editBottle} casts={casts} onSave={handleSave} onDelete={handleDelete} onClose={closeForm} />}
+
+      {/* 絞り込みボトムシート */}
+      {showFilter && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 45 }}>
+          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.3)' }} onClick={() => setShowFilter(false)} />
+          <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: '#fff', borderRadius: '20px 20px 0 0', maxHeight: '75vh', display: 'flex', flexDirection: 'column', boxShadow: '0 -4px 24px rgba(0,0,0,0.1)', paddingBottom: 'var(--sab)' }}>
+            {/* シートヘッダー */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 16px 12px', borderBottom: '1px solid #e5e7eb', flexShrink: 0 }}>
+              <span style={{ fontWeight: 'bold', color: '#111827', fontSize: 16 }}>絞り込み</span>
+              <button onClick={() => setShowFilter(false)} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: '#9ca3af', lineHeight: 1 }}>×</button>
+            </div>
+
+            {/* スクロール可能なコンテンツ */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+              {/* 指名の子 */}
+              <div>
+                <p style={{ fontSize: 12, color: '#9ca3af', margin: '0 0 10px', fontWeight: 600 }}>指名の子</p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  <button onClick={() => setCastFilter('')}
+                    style={{ padding: '6px 16px', borderRadius: 20, fontSize: 13, fontWeight: 'bold', cursor: 'pointer', border: 'none', background: !castFilter ? '#7c3aed' : '#f3f4f6', color: !castFilter ? '#fff' : '#6b7280' }}>
+                    すべて
+                  </button>
+                  {casts.map(name => {
+                    const cc = castColor(name); const isActive = castFilter === name;
+                    return (
+                      <button key={name} onClick={() => setCastFilter(isActive ? '' : name)}
+                        style={{ padding: '6px 16px', borderRadius: 20, fontSize: 13, fontWeight: 'bold', cursor: 'pointer', background: isActive ? cc : '#f3f4f6', color: isActive ? '#fff' : cc, border: `1px solid ${cc}40` }}>
+                        {name}
+                      </button>
+                    );
+                  })}
+                  <button onClick={() => { setShowFilter(false); setShowCastMgr(true); }}
+                    style={{ padding: '6px 16px', borderRadius: 20, fontSize: 13, cursor: 'pointer', background: '#f3f4f6', color: '#9ca3af', border: '1px solid #e5e7eb' }}>
+                    ＋ 管理
+                  </button>
+                </div>
+              </div>
+
+              {/* 入れた日付 */}
+              <div>
+                <p style={{ fontSize: 12, color: '#9ca3af', margin: '0 0 10px', fontWeight: 600 }}>入れた日付</p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} style={{ ...inp, flex: 1 }} />
+                  <span style={{ color: '#d1d5db', flexShrink: 0 }}>〜</span>
+                  <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} style={{ ...inp, flex: 1 }} />
+                </div>
+              </div>
+
+              {/* クリア */}
+              {activeFilterCount > 0 && (
+                <button onClick={() => { clearFilters(); setShowFilter(false); }}
+                  style={{ padding: '12px', borderRadius: 12, fontSize: 14, cursor: 'pointer', background: 'rgba(239,68,68,0.06)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.15)', fontWeight: 500 }}>
+                  フィルターをクリア
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* データ管理モーダル */}
       {showDataMgr && (
