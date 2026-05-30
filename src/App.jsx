@@ -41,6 +41,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [migrating, setMigrating] = useState(false);
   const [migrateProgress, setMigrateProgress] = useState({ done: 0, total: 0 });
+  const [migrateError, setMigrateError] = useState(null);
 
   const [view, setView]           = useState('bottles');
   const [query, setQuery]         = useState('');
@@ -60,23 +61,29 @@ export default function App() {
   useEffect(() => {
     let unsubBottles, unsubCasts;
 
+    const startSubscriptions = () => {
+      unsubBottles = subscribeBottles(data => { setBottles(data); setLoading(false); });
+      unsubCasts = subscribeCasts(setCasts);
+    };
+
     const init = async () => {
-      // Check and run migration from localStorage
       const localCount = JSON.parse(localStorage.getItem('cabaret_bottles') || '[]').length;
       if (localCount > 0) {
         setMigrating(true);
         setMigrateProgress({ done: 0, total: localCount });
-        await migrateFromLocalStorage((done, total) => {
-          setMigrateProgress({ done, total });
-        });
+        try {
+          await migrateFromLocalStorage((done, total) => {
+            setMigrateProgress({ done, total });
+          });
+        } catch (err) {
+          setMigrateError(err.message || String(err));
+          setMigrating(false);
+          startSubscriptions();
+          return;
+        }
         setMigrating(false);
       }
-
-      unsubBottles = subscribeBottles(data => {
-        setBottles(data);
-        setLoading(false);
-      });
-      unsubCasts = subscribeCasts(setCasts);
+      startSubscriptions();
     };
 
     init();
@@ -200,6 +207,15 @@ export default function App() {
   if (migrating) {
     const pct = migrateProgress.total > 0
       ? Math.round((migrateProgress.done / migrateProgress.total) * 100) : 0;
+
+    function skipMigration() {
+      localStorage.removeItem('cabaret_bottles');
+      localStorage.removeItem('cabaret_casts');
+      setMigrating(false);
+      const unsubB = subscribeBottles(data => { setBottles(data); setLoading(false); });
+      const unsubC = subscribeCasts(setCasts);
+    }
+
     return (
       <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#0d0d1a', padding: 32 }}>
         <div style={{ fontSize: 40, marginBottom: 24 }}>🍾</div>
@@ -207,9 +223,16 @@ export default function App() {
         <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13, marginBottom: 24 }}>
           {migrateProgress.done} / {migrateProgress.total} 本
         </div>
-        <div style={{ width: 280, height: 8, borderRadius: 4, background: 'rgba(255,255,255,0.1)' }}>
+        <div style={{ width: 280, height: 8, borderRadius: 4, background: 'rgba(255,255,255,0.1)', marginBottom: 32 }}>
           <div style={{ height: '100%', borderRadius: 4, background: 'linear-gradient(90deg,#7c3aed,#db2777)', width: `${pct}%`, transition: 'width 0.3s' }} />
         </div>
+        <div style={{ color: 'rgba(255,255,255,0.25)', fontSize: 12, marginBottom: 12 }}>
+          時間がかかる場合は以下をタップ
+        </div>
+        <button onClick={skipMigration}
+          style={{ background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.5)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 12, padding: '8px 20px', fontSize: 13, cursor: 'pointer' }}>
+          スキップして後で移行
+        </button>
       </div>
     );
   }
