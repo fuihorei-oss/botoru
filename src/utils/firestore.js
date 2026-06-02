@@ -14,17 +14,23 @@ async function writeLog(action, detail = {}) {
   }
 }
 
-export function subscribeBottles(callback) {
-  return onValue(ref(db, 'bottles'), snapshot => {
-    const data = snapshot.val() || {};
-    callback(Object.entries(data).map(([id, b]) => ({ id, ...b })));
-  });
+export function subscribeBottles(callback, onError) {
+  return onValue(
+    ref(db, 'bottles'),
+    snapshot => {
+      const data = snapshot.val() || {};
+      callback(Object.entries(data).map(([id, b]) => ({ id, ...b })));
+    },
+    err => { if (onError) onError(err); },
+  );
 }
 
 export function subscribeCasts(callback) {
-  return onValue(ref(db, 'config/casts'), snapshot => {
-    callback(snapshot.val() || []);
-  });
+  return onValue(
+    ref(db, 'config/casts'),
+    snapshot => { callback(snapshot.val() || []); },
+    () => { callback([]); }, // エラー時は空配列にフォールバック
+  );
 }
 
 export async function upsertBottle(bottle) {

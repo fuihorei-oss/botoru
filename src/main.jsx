@@ -10,16 +10,13 @@ function Root() {
 
   useEffect(() => onAuth(setUser), []);
 
-  // 認証確認中でも、以前のスナップショットがあればAppを先に描画する
-  // （Firebase RTDBは内部でauth tokenを待つため安全）
-  const hasSnapshot = !!localStorage.getItem('botoru_snapshot');
-
-  if (user === null) return <AuthScreen />;
-  if (user === undefined && !hasSnapshot) return (
+  if (user === undefined) return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f5f5f7' }}>
       <div style={{ color: '#9ca3af', fontSize: 14 }}>読み込み中...</div>
     </div>
   );
+
+  if (!user) return <AuthScreen />;
   return <App />;
 }
 

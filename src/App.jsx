@@ -12,7 +12,7 @@ import BottleForm from './components/BottleForm';
 import CastList from './components/CastList';
 import NeckList from './components/NeckList';
 
-const APP_VERSION = '1.1.6';
+const APP_VERSION = '1.1.7';
 
 const SNAPSHOT_KEY = 'botoru_snapshot';
 
@@ -68,6 +68,7 @@ export default function App() {
   const [migrating, setMigrating] = useState(false);
   const [migrateProgress, setMigrateProgress] = useState({ done: 0, total: 0 });
   const [migrateError, setMigrateError] = useState(null);
+  const [loadError, setLoadError] = useState(null);
 
   const [view, setView]           = useState('bottles');
   const [rawQuery, setRawQuery]   = useState('');
@@ -91,7 +92,10 @@ export default function App() {
     let unsubBottles, unsubCasts;
 
     const startSubscriptions = () => {
-      unsubBottles = subscribeBottles(data => { setBottles(data); setLoading(false); saveSnapshot(data); });
+      unsubBottles = subscribeBottles(
+        data => { setBottles(data); setLoading(false); setLoadError(null); saveSnapshot(data); },
+        err  => { console.error('RTDB error:', err); setLoadError(err?.message || 'Firebase接続エラー'); setLoading(false); },
+      );
       unsubCasts = subscribeCasts(setCasts);
     };
 
@@ -399,6 +403,15 @@ export default function App() {
           {loading ? (
             <div style={{ textAlign: 'center', padding: '80px 0', color: '#9ca3af', fontSize: 14 }}>
               読み込み中...
+            </div>
+          ) : loadError ? (
+            <div style={{ textAlign: 'center', padding: '60px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+              <div style={{ fontSize: 14, color: '#ef4444' }}>Firebase接続に失敗しました</div>
+              <div style={{ fontSize: 12, color: '#9ca3af' }}>{loadError}</div>
+              <button onClick={() => window.location.reload()}
+                style={{ padding: '10px 24px', borderRadius: 12, fontWeight: 'bold', fontSize: 14, color: '#fff', border: 'none', cursor: 'pointer', background: 'linear-gradient(135deg,#7c3aed,#db2777)' }}>
+                再読み込み
+              </button>
             </div>
           ) : filtered.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '80px 0', color: '#9ca3af' }}>
