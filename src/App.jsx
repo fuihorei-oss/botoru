@@ -12,7 +12,28 @@ import BottleForm from './components/BottleForm';
 import CastList from './components/CastList';
 import NeckList from './components/NeckList';
 
-const APP_VERSION = '1.1.4';
+const APP_VERSION = '1.1.5';
+
+const SNAPSHOT_KEY = 'botoru_snapshot';
+
+function loadSnapshot() {
+  try {
+    const raw = localStorage.getItem(SNAPSHOT_KEY);
+    if (!raw) return null;
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveSnapshot(bottles) {
+  try {
+    localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(bottles));
+  } catch {
+    // 容量超過などは無視（次回はネットワークから取得）
+  }
+}
 
 function SearchIcon() {
   return (
@@ -40,9 +61,10 @@ function GearIcon() {
 }
 
 export default function App() {
-  const [bottles, setBottles] = useState([]);
+  const cachedSnapshot = useMemo(() => loadSnapshot(), []);
+  const [bottles, setBottles] = useState(cachedSnapshot || []);
   const [casts, setCasts]     = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!cachedSnapshot);
   const [migrating, setMigrating] = useState(false);
   const [migrateProgress, setMigrateProgress] = useState({ done: 0, total: 0 });
   const [migrateError, setMigrateError] = useState(null);
@@ -69,7 +91,7 @@ export default function App() {
     let unsubBottles, unsubCasts;
 
     const startSubscriptions = () => {
-      unsubBottles = subscribeBottles(data => { setBottles(data); setLoading(false); });
+      unsubBottles = subscribeBottles(data => { setBottles(data); setLoading(false); saveSnapshot(data); });
       unsubCasts = subscribeCasts(setCasts);
     };
 
