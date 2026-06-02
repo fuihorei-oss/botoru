@@ -7,12 +7,13 @@ import {
   upsertBottle, deleteBottle, batchUpsertBottles, batchDeleteBottles,
   updateCasts, migrateFromLocalStorage,
 } from './utils/firestore';
+import { auth } from './utils/firebase';
 import BottleCard from './components/BottleCard';
 import BottleForm from './components/BottleForm';
 import CastList from './components/CastList';
 import NeckList from './components/NeckList';
 
-const APP_VERSION = '1.1.7';
+const APP_VERSION = '1.1.8';
 
 const SNAPSHOT_KEY = 'botoru_snapshot';
 
@@ -91,7 +92,11 @@ export default function App() {
   useEffect(() => {
     let unsubBottles, unsubCasts;
 
-    const startSubscriptions = () => {
+    const startSubscriptions = async () => {
+      // Firebase Auth と RTDB の間にラグがあり、トークン未送信のまま
+      // onValue が走ると permission_denied になる。
+      // getIdToken() でトークンを確実に発行・送信してから購読する。
+      try { await auth.currentUser?.getIdToken(false); } catch { /* ignore */ }
       unsubBottles = subscribeBottles(
         data => { setBottles(data); setLoading(false); setLoadError(null); saveSnapshot(data); },
         err  => { console.error('RTDB error:', err); setLoadError(err?.message || 'Firebase接続エラー'); setLoading(false); },
@@ -111,12 +116,12 @@ export default function App() {
         } catch (err) {
           setMigrateError(err.message || String(err));
           setMigrating(false);
-          startSubscriptions();
+          await startSubscriptions();
           return;
         }
         setMigrating(false);
       }
-      startSubscriptions();
+      await startSubscriptions();
     };
 
     init();
