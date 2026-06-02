@@ -12,7 +12,7 @@ import BottleForm from './components/BottleForm';
 import CastList from './components/CastList';
 import NeckList from './components/NeckList';
 
-const APP_VERSION = '1.1.5';
+const APP_VERSION = '1.1.6';
 
 const SNAPSHOT_KEY = 'botoru_snapshot';
 
@@ -302,15 +302,6 @@ export default function App() {
     );
   }
 
-  // ── Loading screen ────────────────────────────────────────────────
-  if (loading) {
-    return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f5f5f7' }}>
-        <div style={{ color: '#9ca3af', fontSize: 14 }}>読み込み中...</div>
-      </div>
-    );
-  }
-
   const modal = { position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' };
   const sheet = { position: 'relative', width: '100%', maxWidth: 448, borderRadius: '20px 20px 0 0', background: '#fff', boxShadow: '0 -4px 32px rgba(0,0,0,0.12)' };
   const sheetHeader = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 20px 12px' };
@@ -405,7 +396,11 @@ export default function App() {
       {/* ボトルリスト */}
       {view === 'bottles' && (
         <main style={{ flex: 1, padding: '12px 16px calc(100px + var(--sab))', display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {filtered.length === 0 ? (
+          {loading ? (
+            <div style={{ textAlign: 'center', padding: '80px 0', color: '#9ca3af', fontSize: 14 }}>
+              読み込み中...
+            </div>
+          ) : filtered.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '80px 0', color: '#9ca3af' }}>
               {isFiltered ? '該当するボトルが見つかりません' : 'ボトルがまだ登録されていません'}
             </div>
