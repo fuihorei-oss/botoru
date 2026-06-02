@@ -40,6 +40,35 @@ function splitCasts(s) {
     .filter(Boolean);
 }
 
+// ネーム "お客さん名/番号/指名キャスト" を分解する。
+// 3区画なら末尾を指名として取り出し、ネック名（客/番号）と分ける。
+// 戻り値の extraCasts は、指名列が空の行を補うためのキャスト。
+function deriveNeck(neckRaw, castNames) {
+  const s = (neckRaw || '').trim();
+  if (!s) return { customerName: '', keepName: '', extraCasts: [] };
+  const parts = s.split('/').map(p => p.trim());
+  const customerName = parts.length >= 2 ? parts[0] : '';
+
+  // 3区画以上: 末尾は指名キャスト
+  if (parts.length >= 3) {
+    return {
+      customerName,
+      keepName: parts.slice(0, -1).join('/'),
+      extraCasts: parts[parts.length - 1].split(/[,、，]/).map(x => x.trim()).filter(Boolean),
+    };
+  }
+
+  // 2区画: 末尾が指名列と一致するときだけ指名として取り除く
+  if (parts.length === 2 && castNames.length) {
+    const lastCasts = parts[1].split(/[,、，]/).map(x => x.trim()).filter(Boolean);
+    if (lastCasts.length && lastCasts.every(c => castNames.includes(c))) {
+      return { customerName, keepName: parts[0], extraCasts: [] };
+    }
+  }
+
+  return { customerName, keepName: s, extraCasts: [] };
+}
+
 // ボトル管理テーブルのCSVをアプリのデータ形式に変換する
 export function csvToBottles(text) {
   const rows = parseCSV(text);
@@ -71,7 +100,9 @@ export function csvToBottles(text) {
     const name = get(row, col.name);
     if (!name) continue; // 銘柄が無い行はスキップ
 
-    const castName = splitCasts(get(row, col.cast));
+    const colCasts = splitCasts(get(row, col.cast));
+    const { customerName, keepName, extraCasts } = deriveNeck(get(row, col.keepName), colCasts);
+    const castName = [...new Set([...colCasts, ...extraCasts])];
     castName.forEach(c => castSet.add(c));
 
     const rawNote = get(row, col.note);
@@ -84,12 +115,12 @@ export function csvToBottles(text) {
     bottles.push({
       id: generateId(),
       name,
-      keepName: get(row, col.keepName),
+      keepName,
       remainingAmount: Number.isFinite(amountNum) ? amountNum : 30,
       remainingUnit: 'cm',
       isPhysical: !!get(row, col.physical),
       isUnopened: !!get(row, col.unopened),
-      customerName: '',
+      customerName,
       castName,
       notes,
       purchaseDate,
