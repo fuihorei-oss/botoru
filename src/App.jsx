@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { buildSearchIndex, searchBottles } from './utils/search';
+import { mergeBottleCsvs } from './utils/csvImport';
 import { castColor, getCastNames } from './utils/castColors';
 import {
   subscribeBottles, subscribeCasts,
@@ -224,6 +225,26 @@ export default function App() {
     };
     reader.readAsText(file);
     e.target.value = '';
+  }
+
+  async function importCsv(e) {
+    const files = [...e.target.files];
+    if (files.length === 0) return;
+    try {
+      const texts = await Promise.all(files.map(f => f.text()));
+      const { bottles: newBottles, casts: newCasts } = mergeBottleCsvs(texts);
+      if (newBottles.length === 0) { alert('取り込めるデータが見つかりませんでした'); return; }
+      if (!window.confirm(`CSV ${files.length}ファイルから${newBottles.length}本・キャスト${newCasts.length}名を取り込みます（重複は自動で除外）。現在のデータは全て上書きされます。よろしいですか？`)) return;
+      await batchDeleteBottles(bottles);
+      await batchUpsertBottles(newBottles);
+      await updateCasts(newCasts);
+      setShowDataMgr(false);
+      alert(`${newBottles.length}本を取り込みました`);
+    } catch {
+      alert('CSVの読み込みに失敗しました');
+    } finally {
+      e.target.value = '';
+    }
   }
 
   const PAGE_SIZE = 50;
@@ -469,7 +490,11 @@ export default function App() {
                 📂 バックアップから復元
                 <input type="file" accept=".json" style={{ display: 'none' }} onChange={importData} />
               </label>
-              <p style={{ fontSize: 11, textAlign: 'center', color: '#d1d5db', margin: 0 }}>※ 復元すると現在のデータは上書きされます</p>
+              <label style={{ padding: '12px', borderRadius: 12, fontWeight: 'bold', fontSize: 14, textAlign: 'center', display: 'block', cursor: 'pointer', background: '#f9fafb', color: '#6b7280', border: '1px solid #e5e7eb' }}>
+                📑 CSVから取り込み（複数選択可）
+                <input type="file" accept=".csv" multiple style={{ display: 'none' }} onChange={importCsv} />
+              </label>
+              <p style={{ fontSize: 11, textAlign: 'center', color: '#d1d5db', margin: 0 }}>※ 復元・CSV取り込みすると現在のデータは上書きされます</p>
               <p style={{ fontSize: 11, textAlign: 'center', color: '#d1d5db', margin: '4px 0 0' }}>v{APP_VERSION}</p>
             </div>
           </div>

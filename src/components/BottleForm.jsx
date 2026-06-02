@@ -181,32 +181,32 @@ export default function BottleForm({ bottle, casts = [], onSave, onDelete, onClo
                   })}
                 </div>
               )}
-              {showCastChips && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingTop: 8, borderTop: '1px solid #e5e7eb' }}>
-                  {casts.length > 0 && (
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                      {casts.map(name => {
-                        const cc = castColor(name);
-                        const isActive = form.castName.includes(name);
-                        return (
-                          <button key={name} type="button" onClick={() => toggleCast(name)}
-                            style={isActive ? activeChip(cc) : inactiveChip(cc)}>
-                            {name}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <input value={castInput} onChange={e => setCastInput(e.target.value)}
-                      onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addCastInput())}
-                      placeholder="直接入力して追加..."
-                      style={{ ...inp, flex: 1, fontSize: 13 }} />
-                    <button type="button" onClick={addCastInput}
-                      style={{ padding: '8px 14px', borderRadius: 10, background: 'rgba(124,58,237,0.1)', color: '#7c3aed', border: '1px solid rgba(124,58,237,0.2)', fontSize: 13, cursor: 'pointer' }}>
-                      追加
-                    </button>
-                  </div>
+
+              {/* 直接入力（常に表示） */}
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input value={castInput} onChange={e => setCastInput(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addCastInput())}
+                  placeholder="指名キャストを入力して追加..."
+                  style={{ ...inp, flex: 1, fontSize: 13 }} />
+                <button type="button" onClick={addCastInput}
+                  style={{ padding: '8px 14px', borderRadius: 10, background: 'rgba(124,58,237,0.1)', color: '#7c3aed', border: '1px solid rgba(124,58,237,0.2)', fontSize: 13, cursor: 'pointer' }}>
+                  追加
+                </button>
+              </div>
+
+              {/* 登録済みキャストから選ぶ（登録があり、選択を開いたとき） */}
+              {showCastChips && casts.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, paddingTop: 8, borderTop: '1px solid #e5e7eb' }}>
+                  {casts.map(name => {
+                    const cc = castColor(name);
+                    const isActive = form.castName.includes(name);
+                    return (
+                      <button key={name} type="button" onClick={() => toggleCast(name)}
+                        style={isActive ? activeChip(cc) : inactiveChip(cc)}>
+                        {name}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>
