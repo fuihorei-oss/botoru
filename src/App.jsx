@@ -12,7 +12,7 @@ import BottleForm from './components/BottleForm';
 import CastList from './components/CastList';
 import NeckList from './components/NeckList';
 
-const APP_VERSION = '1.1.3';
+const APP_VERSION = '1.1.4';
 
 function SearchIcon() {
   return (
