@@ -12,7 +12,7 @@ import BottleForm from './components/BottleForm';
 import CastList from './components/CastList';
 import NeckList from './components/NeckList';
 
-const APP_VERSION = '1.1.2';
+const APP_VERSION = '1.1.3';
 
 function SearchIcon() {
   return (
@@ -118,7 +118,9 @@ export default function App() {
   // フィルター変更時にページをリセット
   useEffect(() => { setPage(1); }, [query, castFilter, neckFilter, dateFrom, dateTo, sortOrder]);
 
-  const fuse = useMemo(() => buildSearchIndex(sorted), [sorted]);
+  // 検索索引は重いので、検索文字が入力されたときだけ構築する（起動を速く）
+  const needIndex = query.trim().length > 0;
+  const fuse = useMemo(() => (needIndex ? buildSearchIndex(sorted) : null), [sorted, needIndex]);
   const filtered = useMemo(() => {
     let results = searchBottles(fuse, query, sorted);
     if (castFilter) results = results.filter(b => getCastNames(b).includes(castFilter));
