@@ -1,6 +1,45 @@
 {
   "rules": {
     ".read": "auth != null",
-    ".write": "auth != null"
+    ".write": "auth != null",
+
+    "bottles": {
+      "$id": {
+        ".validate": "newData.hasChildren(['name'])",
+        "name":            { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 200" },
+        "keepName":        { ".validate": "newData.isString() && newData.val().length <= 200" },
+        "customerName":    { ".validate": "newData.isString() && newData.val().length <= 200" },
+        "notes":           { ".validate": "newData.isString() && newData.val().length <= 2000" },
+        "purchaseDate":    { ".validate": "newData.isString() && newData.val().length <= 20" },
+        "remainingAmount": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000" },
+        "remainingUnit":   { ".validate": "newData.isString() && newData.val().length <= 8" },
+        "isPhysical":      { ".validate": "newData.isBoolean()" },
+        "isUnopened":      { ".validate": "newData.isBoolean()" },
+        "updatedAt":       { ".validate": "newData.isNumber()" },
+        "castName": {
+          "$i": { ".validate": "newData.isString() && newData.val().length <= 100" }
+        },
+        "$other": { ".validate": false }
+      }
+    },
+
+    "config": {
+      "casts": {
+        "$i": { ".validate": "newData.isString() && newData.val().length <= 100" }
+      },
+      "migrated": { ".validate": "newData.isBoolean()" }
+    },
+
+    "logs": {
+      "$logId": {
+        ".validate": "newData.hasChildren(['action', 'at'])",
+        "action": { ".validate": "newData.isString() && newData.val().length <= 40" },
+        "at":     { ".validate": "newData.isNumber()" },
+        "by":     { ".validate": "newData.isString() && newData.val().length <= 128" },
+        "name":   { ".validate": "newData.isString() && newData.val().length <= 200" },
+        "count":  { ".validate": "newData.isNumber()" },
+        "$other": { ".validate": false }
+      }
+    }
   }
 }

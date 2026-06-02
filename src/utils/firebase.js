@@ -1,6 +1,9 @@
 import { initializeApp } from 'firebase/app';
 import { getDatabase } from 'firebase/database';
-import { getAuth, signInAnonymously } from 'firebase/auth';
+import {
+  getAuth, signInWithEmailAndPassword, signOut as fbSignOut,
+  onAuthStateChanged, setPersistence, browserLocalPersistence,
+} from 'firebase/auth';
 
 const firebaseConfig = {
   apiKey:            import.meta.env.VITE_FIREBASE_API_KEY,
@@ -16,8 +19,20 @@ const app  = initializeApp(firebaseConfig);
 export const db   = getDatabase(app);
 export const auth = getAuth(app);
 
-export async function signInAnon() {
-  if (!auth.currentUser) {
-    await signInAnonymously(auth);
-  }
+// 店舗共通アカウントの固定メール（秘密情報ではない・アカウントの名札）
+const STAFF_EMAIL = 'staff@botoru.local';
+
+// ブラウザを閉じてもログイン状態を保持（リンクを開くだけで入れる）
+setPersistence(auth, browserLocalPersistence).catch(() => {});
+
+export function signIn(password) {
+  return signInWithEmailAndPassword(auth, STAFF_EMAIL, password);
+}
+
+export function signOutUser() {
+  return fbSignOut(auth);
+}
+
+export function onAuth(callback) {
+  return onAuthStateChanged(auth, callback);
 }

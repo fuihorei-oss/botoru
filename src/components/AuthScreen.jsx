@@ -1,19 +1,8 @@
 import { useState } from 'react';
 import { version } from '../../package.json';
+import { signIn } from '../utils/firebase';
 
-const HASH = import.meta.env.VITE_AUTH_HASH;
-const SESSION_KEY = 'botoru_auth';
-
-async function sha256(str) {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
-  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
-}
-
-export function isAuthenticated() {
-  return sessionStorage.getItem(SESSION_KEY) === HASH;
-}
-
-export default function AuthScreen({ onAuth }) {
+export default function AuthScreen() {
   const [input, setInput]   = useState('');
   const [error, setError]   = useState(false);
   const [loading, setLoading] = useState(false);
@@ -21,11 +10,10 @@ export default function AuthScreen({ onAuth }) {
   async function handleSubmit(e) {
     e.preventDefault();
     setLoading(true);
-    const h = await sha256(input);
-    if (h === HASH) {
-      sessionStorage.setItem(SESSION_KEY, HASH);
-      onAuth();
-    } else {
+    try {
+      await signIn(input);
+      // 成功時は onAuthStateChanged が画面を切り替える
+    } catch {
       setError(true);
       setInput('');
       setLoading(false);

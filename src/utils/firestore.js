@@ -1,5 +1,18 @@
-import { db } from './firebase';
-import { ref, set, remove, onValue, update, get } from 'firebase/database';
+import { db, auth } from './firebase';
+import { ref, set, remove, onValue, update, get, push } from 'firebase/database';
+
+async function writeLog(action, detail = {}) {
+  try {
+    await push(ref(db, 'logs'), {
+      action,
+      ...detail,
+      at: Date.now(),
+      by: auth.currentUser?.uid || 'unknown',
+    });
+  } catch {
+    // ログ記録の失敗で本処理を止めない
+  }
+}
 
 export function subscribeBottles(callback) {
   return onValue(ref(db, 'bottles'), snapshot => {
@@ -17,26 +30,31 @@ export function subscribeCasts(callback) {
 export async function upsertBottle(bottle) {
   const { id, ...data } = bottle;
   await set(ref(db, `bottles/${id}`), data);
+  await writeLog('upsert_bottle', { name: data.name || '' });
 }
 
 export async function deleteBottle(id) {
   await remove(ref(db, `bottles/${id}`));
+  await writeLog('delete_bottle');
 }
 
 export async function batchUpsertBottles(bottles) {
   const updates = {};
   bottles.forEach(({ id, ...data }) => { updates[`bottles/${id}`] = data; });
   await update(ref(db), updates);
+  await writeLog('batch_upsert_bottles', { count: bottles.length });
 }
 
 export async function batchDeleteBottles(bottles) {
   const updates = {};
   bottles.forEach(({ id }) => { updates[`bottles/${id}`] = null; });
   await update(ref(db), updates);
+  await writeLog('batch_delete_bottles', { count: bottles.length });
 }
 
 export async function updateCasts(names) {
   await set(ref(db, 'config/casts'), names);
+  await writeLog('update_casts', { count: names.length });
 }
 
 export async function migrateFromLocalStorage(onProgress) {
