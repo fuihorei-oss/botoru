@@ -1,7 +1,7 @@
 {
   "rules": {
-    ".read": "auth != null",
-    ".write": "auth != null",
+    ".read": "auth != null && auth.uid === 'OcZfKX844MSKLenDVXZduPewy3d2'",
+    ".write": "auth != null && auth.uid === 'OcZfKX844MSKLenDVXZduPewy3d2'",
 
     "bottles": {
       "$id": {
