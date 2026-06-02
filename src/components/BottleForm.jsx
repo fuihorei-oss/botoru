@@ -156,7 +156,7 @@ export default function BottleForm({ bottle, casts = [], onSave, onDelete, onClo
           </div>
 
           {/* 指名の子 */}
-          <div style={{ borderRadius: 12, background: '#f9fafb', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+          <div style={{ borderRadius: 12, background: '#f9fafb', border: '1px solid #e5e7eb', overflow: 'hidden', flexShrink: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px 8px' }}>
               <label style={{ fontSize: 12, color: '#6b7280', flexShrink: 0 }}>指名の子</label>
               {form.castName.length > 0 && <span style={{ fontSize: 12, color: '#9ca3af' }}>{form.castName.length}名</span>}
