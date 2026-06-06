@@ -1,8 +1,13 @@
 import { initializeApp } from 'firebase/app';
 import { getDatabase } from 'firebase/database';
 import {
-  getAuth, signInWithEmailAndPassword, signOut as fbSignOut,
-  onAuthStateChanged, setPersistence, browserLocalPersistence,
+  getAuth,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut as fbSignOut,
+  onAuthStateChanged,
+  setPersistence,
+  browserLocalPersistence,
 } from 'firebase/auth';
 
 const firebaseConfig = {
@@ -15,18 +20,19 @@ const firebaseConfig = {
   databaseURL:       import.meta.env.VITE_FIREBASE_DATABASE_URL,
 };
 
-const app  = initializeApp(firebaseConfig);
+const app = initializeApp(firebaseConfig);
 export const db   = getDatabase(app);
 export const auth = getAuth(app);
 
-// 店舗共通アカウントの固定メール（秘密情報ではない・アカウントの名札）
-const STAFF_EMAIL = 'staff@botoru.local';
-
-// ブラウザを閉じてもログイン状態を保持（リンクを開くだけで入れる）
+// ブラウザを閉じてもログイン状態を保持
 setPersistence(auth, browserLocalPersistence).catch(() => {});
 
-export function signIn(password) {
-  return signInWithEmailAndPassword(auth, STAFF_EMAIL, password);
+export function signIn(email, password) {
+  return signInWithEmailAndPassword(auth, email, password);
+}
+
+export function signUp(email, password) {
+  return createUserWithEmailAndPassword(auth, email, password);
 }
 
 export function signOutUser() {
