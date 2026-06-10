@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { version } from '../../package.json';
 import { signIn, signUp } from '../utils/firebase';
+import { createUser } from '../utils/firestore';
 
 const ERROR_MESSAGES = {
   'auth/user-not-found':        'メールアドレスが見つかりません',
@@ -27,7 +28,8 @@ export default function AuthScreen() {
       if (mode === 'login') {
         await signIn(email, password);
       } else {
-        await signUp(email, password);
+        const cred = await signUp(email, password);
+        await createUser(cred.user.uid, email);
       }
       // 成功時は onAuthStateChanged が画面を切り替える
     } catch (err) {

@@ -44,7 +44,7 @@ https://fuihorei-oss.github.io/botoru/
 ## Firebase プロジェクト
 - プロジェクト ID: `botoru-87670`
 - データベース: `botoru-87670-default-rtdb`
-- セキュリティルール: `auth != null`（認証済みのみ読み書き可）
+- セキュリティルール: `auth != null && auth.token.email === 'staff@botoru.local'`（固定アカウントのみ読み書き可）
 - ルールは `firebase deploy --only database --project botoru-87670` でデプロイ
 
 ## セキュリティの現状

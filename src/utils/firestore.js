@@ -1,6 +1,50 @@
 import { db, auth } from './firebase';
 import { ref, set, remove, onValue, update, get, push } from 'firebase/database';
 
+// ── ユーザー管理 ──────────────────────────────────────────────────
+
+export async function createUser(uid, email) {
+  await set(ref(db, `users/${uid}`), {
+    email,
+    role: 'pending',
+    createdAt: Date.now(),
+  });
+}
+
+export async function getUserRole(uid) {
+  const snap = await get(ref(db, `users/${uid}/role`));
+  return snap.val(); // 'pending' | 'staff' | 'admin' | null
+}
+
+export function subscribeUserRole(uid, callback) {
+  return onValue(ref(db, `users/${uid}/role`), snap => callback(snap.val()));
+}
+
+export async function approveUser(uid) {
+  await update(ref(db, `users/${uid}`), { role: 'staff' });
+}
+
+export async function revokeUser(uid) {
+  await update(ref(db, `users/${uid}`), { role: 'pending' });
+}
+
+export function subscribePendingUsers(callback) {
+  return onValue(ref(db, 'users'), snap => {
+    const data = snap.val() || {};
+    const pending = Object.entries(data)
+      .map(([uid, u]) => ({ uid, ...u }))
+      .filter(u => u.role === 'pending');
+    callback(pending);
+  });
+}
+
+export function subscribeAllUsers(callback) {
+  return onValue(ref(db, 'users'), snap => {
+    const data = snap.val() || {};
+    callback(Object.entries(data).map(([uid, u]) => ({ uid, ...u })));
+  });
+}
+
 async function writeLog(action, detail = {}) {
   try {
     await push(ref(db, 'logs'), {

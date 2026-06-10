@@ -1,40 +1,19 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { buildSearchIndex, searchBottles } from './utils/search';
-import { mergeBottleCsvs } from './utils/csvImport';
 import { castColor, getCastNames } from './utils/castColors';
 import {
   subscribeBottles, subscribeCasts,
   upsertBottle, deleteBottle, batchUpsertBottles, batchDeleteBottles,
   updateCasts, migrateFromLocalStorage,
 } from './utils/firestore';
-import { auth } from './utils/firebase';
 import BottleCard from './components/BottleCard';
 import BottleForm from './components/BottleForm';
 import CastList from './components/CastList';
 import NeckList from './components/NeckList';
+import AdminPanel from './components/AdminPanel';
+import { signOutUser } from './utils/firebase';
 
-const APP_VERSION = '1.1.8';
-
-const SNAPSHOT_KEY = 'botoru_snapshot';
-
-function loadSnapshot() {
-  try {
-    const raw = localStorage.getItem(SNAPSHOT_KEY);
-    if (!raw) return null;
-    const arr = JSON.parse(raw);
-    return Array.isArray(arr) ? arr : null;
-  } catch {
-    return null;
-  }
-}
-
-function saveSnapshot(bottles) {
-  try {
-    localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(bottles));
-  } catch {
-    // 容量超過などは無視（次回はネットワークから取得）
-  }
-}
+const APP_VERSION = '1.0.2';
 
 function SearchIcon() {
   return (
@@ -61,15 +40,13 @@ function GearIcon() {
   );
 }
 
-export default function App() {
-  const cachedSnapshot = useMemo(() => loadSnapshot(), []);
-  const [bottles, setBottles] = useState(cachedSnapshot || []);
+export default function App({ role }) {
+  const [bottles, setBottles] = useState([]);
   const [casts, setCasts]     = useState([]);
-  const [loading, setLoading] = useState(!cachedSnapshot);
+  const [loading, setLoading] = useState(true);
   const [migrating, setMigrating] = useState(false);
   const [migrateProgress, setMigrateProgress] = useState({ done: 0, total: 0 });
   const [migrateError, setMigrateError] = useState(null);
-  const [loadError, setLoadError] = useState(null);
 
   const [view, setView]           = useState('bottles');
   const [rawQuery, setRawQuery]   = useState('');
@@ -87,20 +64,14 @@ export default function App() {
   const [newCastInput, setNewCastInput] = useState('');
   const [editingCast, setEditingCast]   = useState(null);
   const [showDataMgr, setShowDataMgr]   = useState(false);
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
 
   // Firestore subscriptions + migration
   useEffect(() => {
     let unsubBottles, unsubCasts;
 
-    const startSubscriptions = async () => {
-      // Firebase Auth と RTDB の間にラグがあり、トークン未送信のまま
-      // onValue が走ると permission_denied になる。
-      // getIdToken() でトークンを確実に発行・送信してから購読する。
-      try { await auth.currentUser?.getIdToken(false); } catch { /* ignore */ }
-      unsubBottles = subscribeBottles(
-        data => { setBottles(data); setLoading(false); setLoadError(null); saveSnapshot(data); },
-        err  => { console.error('RTDB error:', err); setLoadError(err?.message || 'Firebase接続エラー'); setLoading(false); },
-      );
+    const startSubscriptions = () => {
+      unsubBottles = subscribeBottles(data => { setBottles(data); setLoading(false); });
       unsubCasts = subscribeCasts(setCasts);
     };
 
@@ -116,12 +87,12 @@ export default function App() {
         } catch (err) {
           setMigrateError(err.message || String(err));
           setMigrating(false);
-          await startSubscriptions();
+          startSubscriptions();
           return;
         }
         setMigrating(false);
       }
-      await startSubscriptions();
+      startSubscriptions();
     };
 
     init();
@@ -149,9 +120,7 @@ export default function App() {
   // フィルター変更時にページをリセット
   useEffect(() => { setPage(1); }, [query, castFilter, neckFilter, dateFrom, dateTo, sortOrder]);
 
-  // 検索索引は重いので、検索文字が入力されたときだけ構築する（起動を速く）
-  const needIndex = query.trim().length > 0;
-  const fuse = useMemo(() => (needIndex ? buildSearchIndex(sorted) : null), [sorted, needIndex]);
+  const fuse = useMemo(() => buildSearchIndex(sorted), [sorted]);
   const filtered = useMemo(() => {
     let results = searchBottles(fuse, query, sorted);
     if (castFilter) results = results.filter(b => getCastNames(b).includes(castFilter));
@@ -260,26 +229,6 @@ export default function App() {
     e.target.value = '';
   }
 
-  async function importCsv(e) {
-    const files = [...e.target.files];
-    if (files.length === 0) return;
-    try {
-      const texts = await Promise.all(files.map(f => f.text()));
-      const { bottles: newBottles, casts: newCasts } = mergeBottleCsvs(texts);
-      if (newBottles.length === 0) { alert('取り込めるデータが見つかりませんでした'); return; }
-      if (!window.confirm(`CSV ${files.length}ファイルから${newBottles.length}本・キャスト${newCasts.length}名を取り込みます（重複は自動で除外）。現在のデータは全て上書きされます。よろしいですか？`)) return;
-      await batchDeleteBottles(bottles);
-      await batchUpsertBottles(newBottles);
-      await updateCasts(newCasts);
-      setShowDataMgr(false);
-      alert(`${newBottles.length}本を取り込みました`);
-    } catch {
-      alert('CSVの読み込みに失敗しました');
-    } finally {
-      e.target.value = '';
-    }
-  }
-
   const PAGE_SIZE = 50;
   const visibleBottles = filtered.slice(0, page * PAGE_SIZE);
   const hasMore = filtered.length > page * PAGE_SIZE;
@@ -307,6 +256,15 @@ export default function App() {
         <button onClick={skipMigration} style={{ background: '#fff', color: '#9ca3af', border: '1px solid #e5e7eb', borderRadius: 12, padding: '8px 20px', fontSize: 13, cursor: 'pointer' }}>
           スキップして後で移行
         </button>
+      </div>
+    );
+  }
+
+  // ── Loading screen ────────────────────────────────────────────────
+  if (loading) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f5f5f7' }}>
+        <div style={{ color: '#9ca3af', fontSize: 14 }}>読み込み中...</div>
       </div>
     );
   }
@@ -405,20 +363,7 @@ export default function App() {
       {/* ボトルリスト */}
       {view === 'bottles' && (
         <main style={{ flex: 1, padding: '12px 16px calc(100px + var(--sab))', display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {loading ? (
-            <div style={{ textAlign: 'center', padding: '80px 0', color: '#9ca3af', fontSize: 14 }}>
-              読み込み中...
-            </div>
-          ) : loadError ? (
-            <div style={{ textAlign: 'center', padding: '60px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
-              <div style={{ fontSize: 14, color: '#ef4444' }}>Firebase接続に失敗しました</div>
-              <div style={{ fontSize: 12, color: '#9ca3af' }}>{loadError}</div>
-              <button onClick={() => window.location.reload()}
-                style={{ padding: '10px 24px', borderRadius: 12, fontWeight: 'bold', fontSize: 14, color: '#fff', border: 'none', cursor: 'pointer', background: 'linear-gradient(135deg,#7c3aed,#db2777)' }}>
-                再読み込み
-              </button>
-            </div>
-          ) : filtered.length === 0 ? (
+          {filtered.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '80px 0', color: '#9ca3af' }}>
               {isFiltered ? '該当するボトルが見つかりません' : 'ボトルがまだ登録されていません'}
             </div>
@@ -450,6 +395,7 @@ export default function App() {
         </button>
       )}
 
+      {showAdminPanel && <AdminPanel onClose={() => setShowAdminPanel(false)} />}
       {showForm && <BottleForm bottle={editBottle} casts={casts} onSave={handleSave} onDelete={handleDelete} onClose={closeForm} />}
 
       {/* 絞り込みボトムシート */}
@@ -527,11 +473,17 @@ export default function App() {
                 📂 バックアップから復元
                 <input type="file" accept=".json" style={{ display: 'none' }} onChange={importData} />
               </label>
-              <label style={{ padding: '12px', borderRadius: 12, fontWeight: 'bold', fontSize: 14, textAlign: 'center', display: 'block', cursor: 'pointer', background: '#f9fafb', color: '#6b7280', border: '1px solid #e5e7eb' }}>
-                📑 CSVから取り込み（複数選択可）
-                <input type="file" accept=".csv" multiple style={{ display: 'none' }} onChange={importCsv} />
-              </label>
-              <p style={{ fontSize: 11, textAlign: 'center', color: '#d1d5db', margin: 0 }}>※ 復元・CSV取り込みすると現在のデータは上書きされます</p>
+              <p style={{ fontSize: 11, textAlign: 'center', color: '#d1d5db', margin: 0 }}>※ 復元すると現在のデータは上書きされます</p>
+              {role === 'admin' && (
+                <button onClick={() => { setShowDataMgr(false); setShowAdminPanel(true); }}
+                  style={{ padding: '12px', borderRadius: 12, fontWeight: 'bold', fontSize: 14, textAlign: 'center', border: '1px solid rgba(124,58,237,0.3)', cursor: 'pointer', background: 'rgba(124,58,237,0.06)', color: '#7c3aed' }}>
+                  👑 ユーザー管理
+                </button>
+              )}
+              <button onClick={signOutUser}
+                style={{ padding: '12px', borderRadius: 12, fontWeight: 'bold', fontSize: 14, textAlign: 'center', border: '1px solid #e5e7eb', cursor: 'pointer', background: '#f9fafb', color: '#6b7280' }}>
+                ログアウト
+              </button>
               <p style={{ fontSize: 11, textAlign: 'center', color: '#d1d5db', margin: '4px 0 0' }}>v{APP_VERSION}</p>
             </div>
           </div>

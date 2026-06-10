@@ -1,9 +1,16 @@
 {
   "rules": {
-    ".read": "auth != null",
-    ".write": "auth != null",
+
+    "users": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || root.child('users').child(auth.uid).child('role').val() === 'admin')",
+        ".write": "auth != null && (auth.uid === $uid && !data.exists() || root.child('users').child(auth.uid).child('role').val() === 'admin')"
+      }
+    },
 
     "bottles": {
+      ".read": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'staff' || root.child('users').child(auth.uid).child('role').val() === 'admin')",
+      ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'staff' || root.child('users').child(auth.uid).child('role').val() === 'admin')",
       "$id": {
         ".validate": "newData.hasChildren(['name'])",
         "name":            { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 200" },
@@ -24,6 +31,8 @@
     },
 
     "config": {
+      ".read": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'staff' || root.child('users').child(auth.uid).child('role').val() === 'admin')",
+      ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'staff' || root.child('users').child(auth.uid).child('role').val() === 'admin')",
       "casts": {
         "$i": { ".validate": "newData.isString() && newData.val().length <= 100" }
       },
@@ -31,6 +40,8 @@
     },
 
     "logs": {
+      ".read": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'",
+      ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'staff' || root.child('users').child(auth.uid).child('role').val() === 'admin')",
       "$logId": {
         ".validate": "newData.hasChildren(['action', 'at'])",
         "action": { ".validate": "newData.isString() && newData.val().length <= 40" },
@@ -41,5 +52,6 @@
         "$other": { ".validate": false }
       }
     }
+
   }
 }
