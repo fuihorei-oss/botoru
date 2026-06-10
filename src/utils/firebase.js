@@ -1,5 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getDatabase } from 'firebase/database';
+import { getFirestore } from 'firebase/firestore';
 import {
   getAuth,
   signInWithEmailAndPassword,
@@ -20,11 +21,11 @@ const firebaseConfig = {
   databaseURL:       import.meta.env.VITE_FIREBASE_DATABASE_URL,
 };
 
-const app = initializeApp(firebaseConfig);
-export const db   = getDatabase(app);
+const app  = initializeApp(firebaseConfig);
+export const db   = getFirestore(app);   // Firestore（メイン）
+export const rtdb = getDatabase(app);    // Realtime Database（移行用）
 export const auth = getAuth(app);
 
-// ブラウザを閉じてもログイン状態を保持
 setPersistence(auth, browserLocalPersistence).catch(() => {});
 
 export function signIn(email, password) {
