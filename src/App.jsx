@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { buildSearchIndex, searchBottles } from './utils/search';
 import { castColor, getCastNames } from './utils/castColors';
+import { mergeBottleCsvs } from './utils/csvImport';
 import {
   subscribeBottles, subscribeCasts,
   upsertBottle, deleteBottle, batchUpsertBottles, batchDeleteBottles,
@@ -227,6 +228,112 @@ export default function App({ role }) {
     };
     reader.readAsText(file);
     e.target.value = '';
+  }
+
+  function exportCSV() {
+    const headers = ['id', '銘柄', 'ネック名', 'お客様名', 'キャスト', 'メモ', '購入日', '残量', '残量単位', '未開封', '実物あり'];
+    const rows = bottles.map(b => {
+      const casts = Array.isArray(b.castName) ? b.castName.join('|') : (b.castName || '');
+      const esc = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+      return [
+        esc(b.id), esc(b.name), esc(b.keepName || ''), esc(b.customerName || ''),
+        esc(casts), esc(b.notes || ''), esc(b.purchaseDate || ''),
+        b.remainingAmount ?? '', esc(b.remainingUnit || ''),
+        b.isUnopened ? '1' : '0', b.isPhysical ? '1' : '0',
+      ].join(',');
+    });
+    const bom = '﻿';
+    const blob = new Blob([bom + [headers.join(','), ...rows].join('\n')], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `botoru-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // 自前のCSVエクスポート形式（ヘッダーに「銘柄」列がある）をパースする
+  function parseAppCsv(text) {
+    const lines = text.replace(/^﻿/, '').split(/\r?\n/).filter(l => l.trim());
+    if (lines.length < 2) return [];
+
+    function parseCSVLine(line) {
+      const result = []; let cur = ''; let inQ = false;
+      for (let i = 0; i < line.length; i++) {
+        const c = line[i];
+        if (c === '"') { if (inQ && line[i+1] === '"') { cur += '"'; i++; } else { inQ = !inQ; } }
+        else if (c === ',' && !inQ) { result.push(cur); cur = ''; }
+        else { cur += c; }
+      }
+      result.push(cur);
+      return result;
+    }
+
+    const headers = parseCSVLine(lines[0]);
+    const idxOf = name => headers.indexOf(name);
+    return lines.slice(1).map(line => {
+      const cols = parseCSVLine(line);
+      const get = name => cols[idxOf(name)] ?? '';
+      const id = get('id') || crypto.randomUUID();
+      const castRaw = get('キャスト');
+      const castName = castRaw ? castRaw.split('|').map(s => s.trim()).filter(Boolean) : [];
+      return {
+        id, name: get('銘柄'), keepName: get('ネック名'), customerName: get('お客様名'),
+        castName, notes: get('メモ'), purchaseDate: get('購入日'),
+        remainingAmount: get('残量') !== '' ? Number(get('残量')) : null,
+        remainingUnit: get('残量単位'),
+        isUnopened: get('未開封') === '1',
+        isPhysical: get('実物あり') === '1',
+        updatedAt: Date.now(),
+      };
+    }).filter(b => b.name);
+  }
+
+  // ヘッダーで形式を判定: 「ボトル」列があれば Airtable のエクスポート
+  function isAirtableCsv(text) {
+    const firstLine = (text.replace(/^﻿/, '').split(/\r?\n/)[0] || '');
+    const cells = firstLine.split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+    return cells.includes('ボトル');
+  }
+
+  async function importCSV(e) {
+    const files = [...e.target.files];
+    if (files.length === 0) return;
+    try {
+      const texts = await Promise.all(files.map(f => f.text()));
+
+      const airtableTexts = texts.filter(isAirtableCsv);
+      const appTexts = texts.filter(t => !isAirtableCsv(t));
+
+      let newBottles = [];
+      const castSet = new Set();
+
+      if (airtableTexts.length) {
+        const res = mergeBottleCsvs(airtableTexts);
+        newBottles = newBottles.concat(res.bottles);
+        res.casts.forEach(c => castSet.add(c));
+      }
+      for (const text of appTexts) {
+        for (const b of parseAppCsv(text)) {
+          newBottles.push(b);
+          (Array.isArray(b.castName) ? b.castName : []).forEach(c => castSet.add(c));
+        }
+      }
+
+      if (newBottles.length === 0) { alert('取り込めるデータが見つかりませんでした'); return; }
+
+      const newCasts = [...castSet];
+      if (!window.confirm(`CSV ${files.length}ファイルから${newBottles.length}本・キャスト${newCasts.length}名を取り込みます。現在のデータは全て上書きされます。よろしいですか？`)) return;
+      await batchDeleteBottles(bottles);
+      await batchUpsertBottles(newBottles);
+      await updateCasts(newCasts);
+      setShowDataMgr(false);
+      alert(`${newBottles.length}本を取り込みました`);
+    } catch (err) {
+      alert('CSVの読み込みに失敗しました: ' + err.message);
+    } finally {
+      e.target.value = '';
+    }
   }
 
   const PAGE_SIZE = 50;
@@ -467,12 +574,21 @@ export default function App({ role }) {
             <div style={{ padding: '0 20px 24px', display: 'flex', flexDirection: 'column', gap: 10 }}>
               <p style={{ fontSize: 12, color: '#9ca3af', margin: 0 }}>全{bottles.length}本 / キャスト{casts.length}名</p>
               <button onClick={exportData} style={{ padding: '12px', borderRadius: 12, fontWeight: 'bold', fontSize: 14, color: '#fff', border: 'none', cursor: 'pointer', background: 'linear-gradient(135deg, #7c3aed, #db2777)' }}>
-                💾 バックアップをダウンロード
+                💾 バックアップをダウンロード（JSON）
               </button>
               <label style={{ padding: '12px', borderRadius: 12, fontWeight: 'bold', fontSize: 14, textAlign: 'center', display: 'block', cursor: 'pointer', background: '#f9fafb', color: '#6b7280', border: '1px solid #e5e7eb' }}>
-                📂 バックアップから復元
+                📂 バックアップから復元（JSON）
                 <input type="file" accept=".json" style={{ display: 'none' }} onChange={importData} />
               </label>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={exportCSV} style={{ flex: 1, padding: '12px', borderRadius: 12, fontWeight: 'bold', fontSize: 14, color: '#059669', border: '1px solid rgba(5,150,105,0.3)', cursor: 'pointer', background: 'rgba(5,150,105,0.06)' }}>
+                  📊 CSVエクスポート
+                </button>
+                <label style={{ flex: 1, padding: '12px', borderRadius: 12, fontWeight: 'bold', fontSize: 14, textAlign: 'center', display: 'block', cursor: 'pointer', background: 'rgba(5,150,105,0.06)', color: '#059669', border: '1px solid rgba(5,150,105,0.3)' }}>
+                  📥 CSVインポート
+                  <input type="file" accept=".csv" multiple style={{ display: 'none' }} onChange={importCSV} />
+                </label>
+              </div>
               <p style={{ fontSize: 11, textAlign: 'center', color: '#d1d5db', margin: 0 }}>※ 復元すると現在のデータは上書きされます</p>
               {role === 'admin' && (
                 <button onClick={() => { setShowDataMgr(false); setShowAdminPanel(true); }}

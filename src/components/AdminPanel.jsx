@@ -67,9 +67,11 @@ function UserRow({ user, roleLabel, roleColor, onApprove, onRevoke }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 12, background: '#f9fafb', border: '1px solid #e5e7eb', marginBottom: 8 }}>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.email}</p>
-        <p style={{ margin: '2px 0 0', fontSize: 11, color: '#9ca3af' }}>
-          {new Date(user.createdAt).toLocaleDateString('ja-JP')} 登録
+        <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {user.name || user.email}
+        </p>
+        <p style={{ margin: '2px 0 0', fontSize: 11, color: '#9ca3af', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {user.name ? user.email + ' · ' : ''}{new Date(user.createdAt).toLocaleDateString('ja-JP')} 登録
         </p>
       </div>
       <span style={{ fontSize: 11, fontWeight: 'bold', padding: '3px 8px', borderRadius: 20, background: roleColor[user.role] + '18', color: roleColor[user.role], flexShrink: 0 }}>

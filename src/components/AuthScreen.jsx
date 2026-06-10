@@ -16,6 +16,7 @@ export default function AuthScreen() {
   const [mode, setMode]       = useState('login');
   const [email, setEmail]     = useState('');
   const [password, setPassword] = useState('');
+  const [name, setName]       = useState('');
   const [error, setError]     = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -23,13 +24,14 @@ export default function AuthScreen() {
     e.preventDefault();
     setError('');
     if (!email || !password) { setError('メールアドレスとパスワードを入力してください'); return; }
+    if (mode === 'signup' && !name.trim()) { setError('名前を入力してください'); return; }
     setLoading(true);
     try {
       if (mode === 'login') {
         await signIn(email, password);
       } else {
         const cred = await signUp(email, password);
-        await createUser(cred.user.uid, email);
+        await createUser(cred.user.uid, email, name.trim());
       }
       // 成功時は onAuthStateChanged が画面を切り替える
     } catch (err) {
@@ -79,10 +81,17 @@ export default function AuthScreen() {
           )}
 
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {mode === 'signup' && (
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: '#6b7280', display: 'block', marginBottom: 4 }}>名前</label>
+                <input type="text" value={name} onChange={e => { setName(e.target.value); setError(''); }}
+                  placeholder="山田 太郎" autoFocus style={inp} />
+              </div>
+            )}
             <div>
               <label style={{ fontSize: 12, fontWeight: 600, color: '#6b7280', display: 'block', marginBottom: 4 }}>メールアドレス</label>
               <input type="email" value={email} onChange={e => { setEmail(e.target.value); setError(''); }}
-                placeholder="email@example.com" autoFocus style={inp} />
+                placeholder="email@example.com" autoFocus={mode === 'login'} style={inp} />
             </div>
             <div>
               <label style={{ fontSize: 12, fontWeight: 600, color: '#6b7280', display: 'block', marginBottom: 4 }}>パスワード</label>

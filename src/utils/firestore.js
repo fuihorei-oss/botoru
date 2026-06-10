@@ -1,9 +1,8 @@
-import { db, rtdb, auth } from './firebase';
+import { db, auth } from './firebase';
 import {
   collection, doc, setDoc, deleteDoc, onSnapshot,
   updateDoc, getDoc, addDoc, writeBatch, getDocs,
 } from 'firebase/firestore';
-import { ref, get as rtdbGet, onValue as rtdbOnValue } from 'firebase/database';
 
 // ── ログ ─────────────────────────────────────────────────────────────
 
@@ -107,63 +106,12 @@ export async function migrateFromLocalStorage(onProgress) {
   return true;
 }
 
-// ── Realtime DB → Firestore マイグレーション ──────────────────────────
-
-export async function checkRtdbMigrationNeeded() {
-  const snap = await getDoc(doc(db, 'config', 'rtdb_migrated'));
-  return !snap.exists();
-}
-
-export async function migrateFromRealtimeDB(onProgress) {
-  const snapshot = await rtdbGet(ref(rtdb, '/'));
-  const data = snapshot.val();
-  if (!data) {
-    await setDoc(doc(db, 'config', 'rtdb_migrated'), { value: true, at: Date.now() });
-    return 0;
-  }
-
-  const bottles = data.bottles ? Object.entries(data.bottles) : [];
-  const total = bottles.length;
-  const CHUNK = 450;
-
-  // ボトル移行
-  for (let i = 0; i < bottles.length; i += CHUNK) {
-    const batch = writeBatch(db);
-    bottles.slice(i, i + CHUNK).forEach(([id, bottle]) => {
-      batch.set(doc(db, 'bottles', id), bottle);
-    });
-    await batch.commit();
-    if (onProgress) onProgress(Math.min(i + CHUNK, total), total);
-  }
-
-  // キャスト移行
-  if (data.config?.casts) {
-    const casts = Array.isArray(data.config.casts)
-      ? data.config.casts
-      : Object.values(data.config.casts);
-    await setDoc(doc(db, 'config', 'casts'), { list: casts.filter(Boolean) });
-  }
-
-  // ユーザー移行
-  if (data.users) {
-    const batch = writeBatch(db);
-    Object.entries(data.users).forEach(([uid, user]) => {
-      batch.set(doc(db, 'users', uid), user);
-    });
-    await batch.commit();
-  }
-
-  // 移行完了フラグ
-  await setDoc(doc(db, 'config', 'rtdb_migrated'), { value: true, at: Date.now() });
-
-  return total;
-}
-
 // ── ユーザー管理 ──────────────────────────────────────────────────────
 
-export async function createUser(uid, email) {
+export async function createUser(uid, email, name) {
   await setDoc(doc(db, 'users', uid), {
     email,
+    name: name || '',
     role: 'pending',
     createdAt: Date.now(),
   });
@@ -175,14 +123,11 @@ export async function getUserRole(uid) {
 }
 
 export function subscribeUserRole(uid, callback) {
-  return onSnapshot(doc(db, 'users', uid), snap => {
-    if (snap.exists()) {
-      callback(snap.data().role);
-    } else {
-      // Firestoreにユーザーがいない場合はRTDBを参照（移行前の管理者対応）
-      rtdbOnValue(ref(rtdb, `users/${uid}/role`), s => callback(s.val()), { onlyOnce: true });
-    }
-  });
+  return onSnapshot(
+    doc(db, 'users', uid),
+    snap => { callback(snap.exists() ? snap.data().role : null); },
+    _err => { callback(null); }
+  );
 }
 
 export async function approveUser(uid) {

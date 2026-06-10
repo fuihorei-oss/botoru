@@ -76,9 +76,14 @@ export function csvToBottles(text) {
 
   const header = rows[0].map(h => h.trim());
   const idx = name => header.indexOf(name);
+  // 最初に見つかった候補列のインデックスを返す（Airtableの列名ゆれに対応）
+  const idxAny = (...names) => {
+    for (const n of names) { const i = idx(n); if (i >= 0) return i; }
+    return -1;
+  };
   const col = {
-    name:        idx('ボトル'),
-    keepName:    idx('ネーム'),
+    name:        idxAny('ボトル', '銘柄'),
+    keepName:    idxAny('ネーム', 'P-Key (from ネーム)'),
     amount:      idx('残量'),
     physical:    idx('現物保管'),
     unopened:    idx('未開封'),
