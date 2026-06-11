@@ -82,6 +82,7 @@ export default function BottleCard({ bottle, onClick }) {
           <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '2px 12px', marginTop: 4 }}>
             {dateLabel && <span style={{ fontSize: 12, color: '#9ca3af' }}>{dateLabel}</span>}
             {bottle.customerName && <span style={{ fontSize: 12, color: '#6b7280' }}>👤 {bottle.customerName}</span>}
+            {bottle.createdByName && <span style={{ fontSize: 12, color: '#9ca3af' }}>🖊 {bottle.createdByName}</span>}
           </div>
 
           {castNames.length > 0 && (

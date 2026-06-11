@@ -135,6 +135,21 @@ export function subscribeUserRole(uid, callback) {
   );
 }
 
+export function subscribeUserData(uid, callback) {
+  return onSnapshot(
+    doc(db, 'users', uid),
+    snap => {
+      if (snap.exists()) {
+        const { role, name } = snap.data();
+        callback({ role: role || null, name: name || '' });
+      } else {
+        callback({ role: null, name: '' });
+      }
+    },
+    () => callback({ role: null, name: '' })
+  );
+}
+
 export async function approveUser(uid) {
   await updateDoc(doc(db, 'users', uid), { role: 'staff' });
 }

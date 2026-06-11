@@ -9,7 +9,7 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
       includeAssets: ['favicon.svg', 'icon-192.png', 'icon-512.png'],
       manifest: {
         name: 'ボトル管理',

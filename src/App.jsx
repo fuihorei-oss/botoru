@@ -40,7 +40,7 @@ function GearIcon() {
   );
 }
 
-export default function App({ role }) {
+export default function App({ role, userName }) {
   const [bottles, setBottles] = useState([]);
   const [casts, setCasts]     = useState([]);
   const [loading, setLoading] = useState(true);
@@ -132,7 +132,13 @@ export default function App({ role }) {
 
   async function handleSave(bottle) {
     try {
-      await upsertBottle(bottle);
+      const isNew = !editBottle;
+      const withMeta = {
+        ...bottle,
+        updatedByName: userName,
+        ...(isNew ? { createdByName: userName, createdAt: Date.now() } : {}),
+      };
+      await upsertBottle(withMeta);
       setShowForm(false);
       setEditBottle(null);
     } catch (err) {
