@@ -17,6 +17,11 @@ async function writeLog(action, detail = {}) {
   } catch { }
 }
 
+// IDにスラッシュが含まれると Firestore のパスが壊れるため置換する
+function safeId(id) {
+  return (id || '').replace(/\//g, '_');
+}
+
 // ── ボトル ────────────────────────────────────────────────────────────
 
 export function subscribeBottles(callback, onError) {
@@ -37,12 +42,12 @@ export function subscribeCasts(callback) {
 
 export async function upsertBottle(bottle) {
   const { id, ...data } = bottle;
-  await setDoc(doc(db, 'bottles', id), data);
+  await setDoc(doc(db, 'bottles', safeId(id)), data);
   await writeLog('upsert_bottle', { name: data.name || '' });
 }
 
 export async function deleteBottle(id) {
-  await deleteDoc(doc(db, 'bottles', id));
+  await deleteDoc(doc(db, 'bottles', safeId(id)));
   await writeLog('delete_bottle');
 }
 
@@ -51,7 +56,7 @@ export async function batchUpsertBottles(bottles) {
   for (let i = 0; i < bottles.length; i += CHUNK) {
     const batch = writeBatch(db);
     bottles.slice(i, i + CHUNK).forEach(({ id, ...data }) => {
-      batch.set(doc(db, 'bottles', id), data);
+      batch.set(doc(db, 'bottles', safeId(id)), data);
     });
     await batch.commit();
   }
@@ -63,7 +68,7 @@ export async function batchDeleteBottles(bottles) {
   for (let i = 0; i < bottles.length; i += CHUNK) {
     const batch = writeBatch(db);
     bottles.slice(i, i + CHUNK).forEach(({ id }) => {
-      batch.delete(doc(db, 'bottles', id));
+      batch.delete(doc(db, 'bottles', safeId(id)));
     });
     await batch.commit();
   }
@@ -93,7 +98,7 @@ export async function migrateFromLocalStorage(onProgress) {
   for (let i = 0; i < localBottles.length; i += CHUNK) {
     const batch = writeBatch(db);
     localBottles.slice(i, i + CHUNK).forEach(({ id, ...data }) => {
-      batch.set(doc(db, 'bottles', id), data);
+      batch.set(doc(db, 'bottles', safeId(id)), data);
     });
     await batch.commit();
     if (onProgress) onProgress(Math.min(i + CHUNK, localBottles.length), localBottles.length);
