@@ -68,7 +68,7 @@ https://fuihorei-oss.github.io/botoru/
 - 検索インデックス（Fuse.js）は入力開始時のみ構築（起動時の CPU ブロックを回避）
 
 ## 現在のバージョン
-v1.3.26
+v1.3.18
 
 ## よく使うコマンド
 ```bash
