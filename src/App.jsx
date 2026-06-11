@@ -407,7 +407,7 @@ export default function App({ role, userName }) {
 
           <div style={{ flex: 1 }} />
 
-          <span style={{ fontSize: 10, color: '#d1d5db', flexShrink: 0, userSelect: 'none' }}>v{APP_VERSION}</span>
+          <span style={{ fontSize: 11, color: '#9ca3af', flexShrink: 0, userSelect: 'none' }}>v{APP_VERSION}</span>
 
           <button onClick={() => setShowDataMgr(true)}
             style={{ flexShrink: 0, width: 30, height: 30, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f9fafb', color: '#9ca3af', border: '1px solid #e5e7eb', cursor: 'pointer' }}>
