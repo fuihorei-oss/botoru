@@ -13,8 +13,7 @@ import CastList from './components/CastList';
 import NeckList from './components/NeckList';
 import AdminPanel from './components/AdminPanel';
 import { signOutUser } from './utils/firebase';
-
-const APP_VERSION = '1.0.2';
+import { version as APP_VERSION } from '../package.json';
 
 function SearchIcon() {
   return (

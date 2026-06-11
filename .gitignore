@@ -4,3 +4,5 @@ dist
 .env.local
 docs/
 .firebase/
+rtdb_export.json
+*.pdf
