@@ -28,7 +28,11 @@ function UpdateBanner() {
       fontSize: 14, boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
     }}>
       <span>🆕 アップデートがあります</span>
-      <button onClick={() => updateServiceWorker(true)} style={{
+      <button onClick={async () => {
+        await updateServiceWorker(true);
+        // controllerchange が発火しない場合のフォールバック
+        window.location.reload();
+      }} style={{
         background: '#fff', color: '#7c3aed', border: 'none',
         borderRadius: 8, padding: '6px 16px', fontWeight: 'bold',
         cursor: 'pointer', fontSize: 13,
