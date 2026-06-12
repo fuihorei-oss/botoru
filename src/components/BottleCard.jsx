@@ -5,15 +5,27 @@ const MAX_G  = 700;
 const MAX_CM = 30;
 
 function AmountRing({ value, unit }) {
+  if (value == null) {
+    return (
+      <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, width: 56, height: 56 }}>
+        <svg width={56} height={56} viewBox="0 0 56 56" style={{ transform: 'rotate(-90deg)' }}>
+          <circle cx={28} cy={28} r={20} fill="none" stroke="#e5e7eb" strokeWidth={5} />
+        </svg>
+        <div style={{ position: 'absolute', display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1 }}>
+          <span style={{ color: '#d1d5db', fontSize: 9, textAlign: 'center', lineHeight: 1.2 }}>データ<br/>なし</span>
+        </div>
+      </div>
+    );
+  }
+
   const u   = unit || 'g';
   const max = u === 'cm' ? MAX_CM : MAX_G;
-  const v   = value ?? max;
-  const pct = Math.min(100, Math.max(0, (v / max) * 100));
+  const pct = Math.min(100, Math.max(0, (value / max) * 100));
   const r   = 20;
   const circ   = 2 * Math.PI * r;
   const offset = circ * (1 - pct / 100);
   const color  = pct > 60 ? '#10b981' : pct > 30 ? '#f59e0b' : '#ef4444';
-  const label  = u === 'cm' ? `${v}` : v >= 1000 ? `${(v / 1000).toFixed(1)}k` : `${v}`;
+  const label  = u === 'cm' ? `${value}` : value >= 1000 ? `${(value / 1000).toFixed(1)}k` : `${value}`;
 
   return (
     <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, width: 56, height: 56 }}>
