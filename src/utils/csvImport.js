@@ -121,7 +121,7 @@ export function csvToBottles(text) {
       id: generateId(),
       name,
       keepName,
-      remainingAmount: Number.isFinite(amountNum) ? amountNum : 30,
+      remainingAmount: Number.isFinite(amountNum) ? amountNum : null,
       remainingUnit: 'cm',
       isPhysical: !!get(row, col.physical),
       isUnopened: !!get(row, col.unopened),

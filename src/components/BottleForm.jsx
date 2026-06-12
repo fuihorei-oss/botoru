@@ -9,8 +9,15 @@ const QUICK_G  = [700, 600, 500, 400, 300, 200, 100, 0];
 const QUICK_CM = [30, 20, 10, 5, 1, 0.5, 0];
 
 function AmountBar({ value, unit }) {
+  if (value == null) {
+    return (
+      <div style={{ width: '100%', height: 10, borderRadius: 5, background: '#f3f4f6', display: 'flex', alignItems: 'center', paddingLeft: 8 }}>
+        <span style={{ fontSize: 9, color: '#d1d5db' }}>データなし</span>
+      </div>
+    );
+  }
   const max = unit === 'cm' ? MAX_CM : MAX_G;
-  const pct = Math.min(100, Math.max(0, ((value ?? max) / max) * 100));
+  const pct = Math.min(100, Math.max(0, (value / max) * 100));
   const color = pct > 60 ? '#10b981' : pct > 30 ? '#f59e0b' : '#ef4444';
   return (
     <div style={{ width: '100%', height: 10, borderRadius: 5, background: '#f3f4f6', overflow: 'hidden' }}>
@@ -134,13 +141,18 @@ export default function BottleForm({ bottle, casts = [], onSave, onDelete, onClo
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
               <input type="number" min={0} step={unit === 'cm' ? 0.5 : 1}
-                value={form.remainingAmount}
-                onChange={e => set('remainingAmount', Math.max(0, Number(e.target.value)))}
+                value={form.remainingAmount ?? ''}
+                onChange={e => set('remainingAmount', e.target.value === '' ? null : Math.max(0, Number(e.target.value)))}
+                placeholder="未入力"
                 style={{ ...inp, width: 112, textAlign: 'center', fontWeight: 'bold', fontSize: 18 }} />
               <span style={{ color: '#6b7280', fontWeight: 500 }}>{unit}</span>
             </div>
             <AmountBar value={form.remainingAmount} unit={unit} />
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+              <button type="button" onClick={() => set('remainingAmount', null)}
+                style={quickBtn(form.remainingAmount == null)}>
+                データなし
+              </button>
               {quickOptions.map(v => (
                 <button key={v} type="button" onClick={() => set('remainingAmount', v)} style={quickBtn(form.remainingAmount === v)}>
                   {v}{unit}
