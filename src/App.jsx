@@ -204,6 +204,16 @@ export default function App({ store, role, userName, onChangeStore }) {
     setView('bottles');
   }
 
+  async function renameNeck(original, newName) {
+    const trimmed = newName.trim();
+    if (!trimmed || trimmed === original) return;
+    const affected = bottles
+      .filter(b => (b.keepName || '').trim() === original)
+      .map(b => ({ ...b, keepName: trimmed, updatedAt: Date.now(), updatedByName: userName }));
+    if (affected.length > 0) await batchUpsertBottles(affected);
+    if (neckFilter === original) setNeckFilter(trimmed);
+  }
+
   function exportData() {
     const blob = new Blob([JSON.stringify({ bottles, casts })], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -500,7 +510,7 @@ export default function App({ store, role, userName, onChangeStore }) {
       )}
 
       {/* ネックビュー */}
-      {view === 'necks' && <NeckList bottles={bottles} onSelectNeck={handleSelectNeck} />}
+      {view === 'necks' && <NeckList bottles={bottles} onSelectNeck={handleSelectNeck} onRenameNeck={renameNeck} />}
 
       {/* キャストビュー */}
       {view === 'casts' && <CastList bottles={bottles} casts={casts} onSelectCast={handleSelectCast} />}
