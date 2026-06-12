@@ -11,7 +11,13 @@ import { subscribeUserData } from './utils/firestore.js';
 import { getSavedStore, saveStore } from './utils/stores.js';
 
 function UpdateBanner() {
-  const { needRefresh: [needRefresh], updateServiceWorker } = useRegisterSW();
+  const { needRefresh: [needRefresh], updateServiceWorker } = useRegisterSW({
+    // アプリを開いたままでも新しいバージョンを検知できるよう定期的に確認する
+    onRegisteredSW(_swUrl, registration) {
+      if (!registration) return;
+      setInterval(() => { registration.update(); }, 60 * 1000);
+    },
+  });
   if (!needRefresh) return null;
   return (
     <div style={{
