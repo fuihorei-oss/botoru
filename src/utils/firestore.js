@@ -3,6 +3,18 @@ import {
   collection, doc, setDoc, deleteDoc, onSnapshot,
   updateDoc, getDoc, addDoc, writeBatch, getDocs,
 } from 'firebase/firestore';
+import { DEFAULT_STORE } from './stores';
+
+// ── 現在の店舗 ────────────────────────────────────────────────────────
+// ボトル・キャスト・設定は店舗ごとに stores/{storeId}/... 配下に保存する。
+// （users は店舗共通のためトップレベルのまま）
+let currentStore = DEFAULT_STORE;
+export function setStore(storeId) { if (storeId) currentStore = storeId; }
+export function getStore() { return currentStore; }
+
+const bottlesCol = (s = currentStore) => collection(db, 'stores', s, 'bottles');
+const bottleDoc  = (id, s = currentStore) => doc(db, 'stores', s, 'bottles', safeId(id));
+const castsDoc   = (s = currentStore) => doc(db, 'stores', s, 'config', 'casts');
 
 // ── ログ ─────────────────────────────────────────────────────────────
 
@@ -10,6 +22,7 @@ async function writeLog(action, detail = {}) {
   try {
     await addDoc(collection(db, 'logs'), {
       action,
+      store: currentStore,
       ...detail,
       at: Date.now(),
       by: auth.currentUser?.uid || 'unknown',
@@ -26,7 +39,7 @@ function safeId(id) {
 
 export function subscribeBottles(callback, onError) {
   return onSnapshot(
-    collection(db, 'bottles'),
+    bottlesCol(),
     snapshot => callback(snapshot.docs.map(d => ({ id: d.id, ...d.data() }))),
     err => { if (onError) onError(err); }
   );
@@ -34,7 +47,7 @@ export function subscribeBottles(callback, onError) {
 
 export function subscribeCasts(callback) {
   return onSnapshot(
-    doc(db, 'config', 'casts'),
+    castsDoc(),
     snapshot => callback(snapshot.exists() ? (snapshot.data().list || []) : []),
     () => callback([])
   );
@@ -42,12 +55,12 @@ export function subscribeCasts(callback) {
 
 export async function upsertBottle(bottle) {
   const { id, ...data } = bottle;
-  await setDoc(doc(db, 'bottles', safeId(id)), data);
+  await setDoc(bottleDoc(id), data);
   await writeLog('upsert_bottle', { name: data.name || '' });
 }
 
 export async function deleteBottle(id) {
-  await deleteDoc(doc(db, 'bottles', safeId(id)));
+  await deleteDoc(bottleDoc(id));
   await writeLog('delete_bottle');
 }
 
@@ -56,7 +69,7 @@ export async function batchUpsertBottles(bottles) {
   for (let i = 0; i < bottles.length; i += CHUNK) {
     const batch = writeBatch(db);
     bottles.slice(i, i + CHUNK).forEach(({ id, ...data }) => {
-      batch.set(doc(db, 'bottles', safeId(id)), data);
+      batch.set(bottleDoc(id), data);
     });
     await batch.commit();
   }
@@ -68,7 +81,7 @@ export async function batchDeleteBottles(bottles) {
   for (let i = 0; i < bottles.length; i += CHUNK) {
     const batch = writeBatch(db);
     bottles.slice(i, i + CHUNK).forEach(({ id }) => {
-      batch.delete(doc(db, 'bottles', safeId(id)));
+      batch.delete(bottleDoc(id));
     });
     await batch.commit();
   }
@@ -76,42 +89,47 @@ export async function batchDeleteBottles(bottles) {
 }
 
 export async function updateCasts(names) {
-  await setDoc(doc(db, 'config', 'casts'), { list: names });
+  await setDoc(castsDoc(), { list: names });
   await writeLog('update_casts', { count: names.length });
 }
 
-// ── LocalStorage マイグレーション ─────────────────────────────────────
+// ── 店舗データの移行 ──────────────────────────────────────────────────
+// 旧構成（トップレベルの bottles / config/casts）を stores/{storeId} 配下へ
+// 一度だけ引き継ぐ。既存データは Virgo に属するものとして移行する。
+// 戻り値: 移行を実行したら true、不要なら false。
+export async function ensureStoreMigrated(storeId, onProgress) {
+  const flagRef = doc(db, 'stores', storeId, 'config', '_migrated');
+  const flag = await getDoc(flagRef);
+  if (flag.exists() && flag.data().value === true) return false;
 
-export async function migrateFromLocalStorage(onProgress) {
-  const metaSnap = await getDoc(doc(db, 'config', 'migrated'));
-  if (metaSnap.exists() && metaSnap.data().value === true) return false;
+  // 既存のトップレベルデータは Virgo にのみ引き継ぐ
+  if (storeId === 'virgo') {
+    const [bottlesSnap, castsSnap] = await Promise.all([
+      getDocs(collection(db, 'bottles')),
+      getDoc(doc(db, 'config', 'casts')),
+    ]);
+    const docs = bottlesSnap.docs;
+    if (onProgress) onProgress(0, docs.length);
 
-  const localBottles = JSON.parse(localStorage.getItem('cabaret_bottles') || '[]');
-  const localCasts   = JSON.parse(localStorage.getItem('cabaret_casts')   || '[]');
-
-  if (localBottles.length === 0 && localCasts.length === 0) {
-    await setDoc(doc(db, 'config', 'migrated'), { value: true });
-    return false;
+    const CHUNK = 450;
+    for (let i = 0; i < docs.length; i += CHUNK) {
+      const batch = writeBatch(db);
+      docs.slice(i, i + CHUNK).forEach(d => {
+        batch.set(doc(db, 'stores', storeId, 'bottles', d.id), d.data());
+      });
+      await batch.commit();
+      if (onProgress) onProgress(Math.min(i + CHUNK, docs.length), docs.length);
+    }
+    if (castsSnap.exists()) {
+      await setDoc(castsDoc(storeId), { list: castsSnap.data().list || [] });
+    }
   }
 
-  const CHUNK = 450;
-  for (let i = 0; i < localBottles.length; i += CHUNK) {
-    const batch = writeBatch(db);
-    localBottles.slice(i, i + CHUNK).forEach(({ id, ...data }) => {
-      batch.set(doc(db, 'bottles', safeId(id)), data);
-    });
-    await batch.commit();
-    if (onProgress) onProgress(Math.min(i + CHUNK, localBottles.length), localBottles.length);
-  }
-
-  await setDoc(doc(db, 'config', 'casts'), { list: localCasts });
-  await setDoc(doc(db, 'config', 'migrated'), { value: true });
-  localStorage.removeItem('cabaret_bottles');
-  localStorage.removeItem('cabaret_casts');
+  await setDoc(flagRef, { value: true, at: Date.now() });
   return true;
 }
 
-// ── ユーザー管理 ──────────────────────────────────────────────────────
+// ── ユーザー管理（店舗共通） ──────────────────────────────────────────
 
 export async function createUser(uid, email, name) {
   await setDoc(doc(db, 'users', uid), {

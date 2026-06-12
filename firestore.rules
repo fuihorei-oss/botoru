@@ -26,12 +26,17 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // ボトル
+    // 店舗ごとのボトル・設定（stores/{storeId}/...）
+    match /stores/{storeId}/{document=**} {
+      allow read, write: if isApproved();
+    }
+
+    // 旧構成（移行元）。stores 配下へ移行するための読み取り用に残す。
     match /bottles/{bottleId} {
       allow read, write: if isApproved();
     }
 
-    // 設定
+    // 設定（旧構成）
     match /config/{docId} {
       allow read, write: if isApproved();
     }

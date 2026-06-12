@@ -5,8 +5,10 @@ import './index.css';
 import App from './App.jsx';
 import AuthScreen from './components/AuthScreen.jsx';
 import PendingScreen from './components/PendingScreen.jsx';
+import StorePicker from './components/StorePicker.jsx';
 import { onAuth } from './utils/firebase.js';
 import { subscribeUserData } from './utils/firestore.js';
+import { getSavedStore, saveStore } from './utils/stores.js';
 
 function UpdateBanner() {
   const { needRefresh: [needRefresh], updateServiceWorker } = useRegisterSW();
@@ -35,6 +37,9 @@ function Root() {
   const [user, setUser] = useState(undefined);
   const [role, setRole] = useState(undefined);
   const [userName, setUserName] = useState('');
+  const [store, setStore] = useState(getSavedStore());
+
+  const chooseStore = (id) => { saveStore(id); setStore(id); };
 
   useEffect(() => onAuth(u => {
     setUser(u);
@@ -60,10 +65,17 @@ function Root() {
 
   if (!user) return <AuthScreen />;
   if (role === 'pending' || role === null) return <PendingScreen />;
+  if (!store) return <StorePicker onSelect={chooseStore} userName={userName} />;
   return (
     <>
       <UpdateBanner />
-      <App role={role} userName={userName} />
+      <App
+        key={store}
+        store={store}
+        role={role}
+        userName={userName}
+        onChangeStore={() => setStore(null)}
+      />
     </>
   );
 }

@@ -5,7 +5,7 @@ import { mergeBottleCsvs } from './utils/csvImport';
 import {
   subscribeBottles, subscribeCasts,
   upsertBottle, deleteBottle, batchUpsertBottles, batchDeleteBottles,
-  updateCasts, migrateFromLocalStorage,
+  updateCasts, ensureStoreMigrated, setStore,
 } from './utils/firestore';
 import BottleCard from './components/BottleCard';
 import BottleForm from './components/BottleForm';
@@ -13,6 +13,7 @@ import CastList from './components/CastList';
 import NeckList from './components/NeckList';
 import AdminPanel from './components/AdminPanel';
 import { signOutUser } from './utils/firebase';
+import { storeName } from './utils/stores';
 import { version as APP_VERSION } from '../package.json';
 
 function SearchIcon() {
@@ -40,7 +41,7 @@ function GearIcon() {
   );
 }
 
-export default function App({ role, userName }) {
+export default function App({ store, role, userName, onChangeStore }) {
   const [bottles, setBottles] = useState([]);
   const [casts, setCasts]     = useState([]);
   const [loading, setLoading] = useState(true);
@@ -66,8 +67,10 @@ export default function App({ role, userName }) {
   const [showDataMgr, setShowDataMgr]   = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
 
-  // Firestore subscriptions + migration
+  // Firestore subscriptions + 店舗データ移行
   useEffect(() => {
+    setStore(store);
+    setLoading(true);
     let unsubBottles, unsubCasts;
 
     const startSubscriptions = () => {
@@ -76,20 +79,16 @@ export default function App({ role, userName }) {
     };
 
     const init = async () => {
-      const localCount = JSON.parse(localStorage.getItem('cabaret_bottles') || '[]').length;
-      if (localCount > 0) {
-        setMigrating(true);
-        setMigrateProgress({ done: 0, total: localCount });
-        try {
-          await migrateFromLocalStorage((done, total) => {
-            setMigrateProgress({ done, total });
-          });
-        } catch (err) {
-          setMigrateError(err.message || String(err));
-          setMigrating(false);
-          startSubscriptions();
-          return;
-        }
+      try {
+        // 旧構成の既存データを初回のみ店舗配下へ引き継ぐ（Virgo のみ対象）。
+        // 実際に移行が走るとき（onProgress 発火時）だけ移行画面を表示する。
+        await ensureStoreMigrated(store, (done, total) => {
+          setMigrating(true);
+          setMigrateProgress({ done, total });
+        });
+      } catch (err) {
+        setMigrateError(err.message || String(err));
+      } finally {
         setMigrating(false);
       }
       startSubscriptions();
@@ -97,7 +96,7 @@ export default function App({ role, userName }) {
 
     init();
     return () => { unsubBottles?.(); unsubCasts?.(); };
-  }, []);
+  }, [store]);
 
   const sorted = useMemo(() => {
     const arr = [...bottles];
@@ -406,6 +405,11 @@ export default function App({ role, userName }) {
           </div>
 
           <div style={{ flex: 1 }} />
+
+          <button onClick={onChangeStore} title="店舗を切り替え"
+            style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: 'bold', cursor: 'pointer', background: 'rgba(124,58,237,0.1)', color: '#7c3aed', border: '1px solid rgba(124,58,237,0.25)' }}>
+            🏬 {storeName(store)} <span style={{ fontSize: 10, opacity: 0.7 }}>▼</span>
+          </button>
 
           <span style={{ fontSize: 11, color: '#9ca3af', flexShrink: 0, userSelect: 'none' }}>v{APP_VERSION}</span>
 
