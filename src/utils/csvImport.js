@@ -136,6 +136,37 @@ export function csvToBottles(text) {
   return { bottles, casts: [...castSet] };
 }
 
+// AirtableのCSVから残量データだけを抽出する（既存ボトルへの補完用）
+export function parseAmountsFromCsv(text) {
+  const rows = parseCSV(text);
+  if (rows.length < 2) return [];
+
+  const header = rows[0].map(h => h.trim());
+  const idxAny = (...names) => { for (const n of names) { const i = header.indexOf(n); if (i >= 0) return i; } return -1; };
+  const clean = v => { let s = (v || '').trim(); if (s.startsWith('"') && s.endsWith('"')) s = s.slice(1, -1); return s.replace(/""/g, '"').trim(); };
+  const get = (row, i) => (i >= 0 && i < row.length ? clean(row[i]) : '');
+
+  const colName   = idxAny('ボトル', '銘柄');
+  const colKeep   = idxAny('ネーム', 'P-Key (from ネーム)');
+  const colAmount = idxAny('残量');
+  const colCast   = idxAny('指名 (from ネーム)');
+
+  if (colAmount < 0) return [];
+
+  const results = [];
+  for (let r = 1; r < rows.length; r++) {
+    const row = rows[r];
+    const name = get(row, colName);
+    if (!name) continue;
+    const amountNum = parseFloat(get(row, colAmount));
+    if (!Number.isFinite(amountNum)) continue;
+    const colCasts = splitCasts(get(row, colCast));
+    const { keepName } = deriveNeck(get(row, colKeep), colCasts);
+    results.push({ name, keepName, remainingAmount: amountNum, remainingUnit: 'cm' });
+  }
+  return results;
+}
+
 // 複数のCSV（部分エクスポート）を統合し、重複を除いて1つにまとめる
 export function mergeBottleCsvs(texts) {
   const seen = new Set();

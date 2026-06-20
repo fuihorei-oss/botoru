@@ -88,9 +88,68 @@ export async function batchDeleteBottles(bottles) {
   await writeLog('batch_delete_bottles', { count: bottles.length });
 }
 
+// ── インポート用：差分同期 ────────────────────────────────────────────
+// 「全削除→全投入」は読み書きを大量に消費するため、新旧データを比較し
+// 変更があったボトルだけ書き込み、無くなったボトルだけ削除する。
+// updatedAt など揮発的なメタは比較対象から外し、中身が同じなら書き込まない
+// （= 同じCSVの再取り込みはほぼ無コスト）。
+const VOLATILE_KEYS = new Set(['id', 'updatedAt', 'updatedByName', 'createdAt', 'createdByName']);
+function stableBottleData(b) {
+  const o = {};
+  Object.keys(b).filter(k => !VOLATILE_KEYS.has(k)).sort()
+    .forEach(k => { o[k] = b[k]; });
+  return JSON.stringify(o);
+}
+
+export async function syncBottles(newBottles, oldBottles) {
+  const newById = new Map(newBottles.map(b => [safeId(b.id), b]));
+  const oldById = new Map(oldBottles.map(b => [safeId(b.id), b]));
+
+  const toDelete = oldBottles.filter(b => !newById.has(safeId(b.id)));
+  const toUpsert = newBottles.filter(b => {
+    const prev = oldById.get(safeId(b.id));
+    return !prev || stableBottleData(prev) !== stableBottleData(b);
+  });
+
+  const CHUNK = 450;
+  for (let i = 0; i < toDelete.length; i += CHUNK) {
+    const batch = writeBatch(db);
+    toDelete.slice(i, i + CHUNK).forEach(({ id }) => batch.delete(bottleDoc(id)));
+    await batch.commit();
+  }
+  for (let i = 0; i < toUpsert.length; i += CHUNK) {
+    const batch = writeBatch(db);
+    toUpsert.slice(i, i + CHUNK).forEach(({ id, ...data }) => batch.set(bottleDoc(id), data));
+    await batch.commit();
+  }
+  await writeLog('sync_bottles', { deleted: toDelete.length, upserted: toUpsert.length });
+  return { deleted: toDelete.length, upserted: toUpsert.length };
+}
+
 export async function updateCasts(names) {
   await setDoc(castsDoc(), { list: names });
   await writeLog('update_casts', { count: names.length });
+}
+
+// ── 店舗データの一括削除 ──────────────────────────────────────────────
+// 指定店舗のボトルを全削除し、キャスト一覧も空にする。破壊的操作のため
+// 呼び出し側で十分な確認を取ること。戻り値: 削除したボトル本数。
+export async function deleteAllStoreData(storeId) {
+  if (!storeId) throw new Error('店舗が指定されていません');
+  const snap = await getDocs(collection(db, 'stores', storeId, 'bottles'));
+  const docs = snap.docs;
+  const CHUNK = 450;
+  for (let i = 0; i < docs.length; i += CHUNK) {
+    const batch = writeBatch(db);
+    docs.slice(i, i + CHUNK).forEach(d => {
+      batch.delete(doc(db, 'stores', storeId, 'bottles', d.id));
+    });
+    await batch.commit();
+  }
+  // キャスト一覧も空にする
+  await setDoc(doc(db, 'stores', storeId, 'config', 'casts'), { list: [] });
+  await writeLog('delete_all_store_data', { store: storeId, deleted: docs.length });
+  return docs.length;
 }
 
 // ── 店舗データの移行 ──────────────────────────────────────────────────
@@ -174,6 +233,11 @@ export async function approveUser(uid) {
 
 export async function revokeUser(uid) {
   await updateDoc(doc(db, 'users', uid), { role: 'pending' });
+}
+
+// 管理者 ↔ スタッフ の権限切り替え
+export async function setUserRole(uid, role) {
+  await updateDoc(doc(db, 'users', uid), { role });
 }
 
 export function subscribeAllUsers(callback) {

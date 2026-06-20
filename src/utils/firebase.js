@@ -1,5 +1,10 @@
 import { initializeApp } from 'firebase/app';
-import { getFirestore } from 'firebase/firestore';
+import {
+  initializeFirestore,
+  getFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+} from 'firebase/firestore';
 import {
   getAuth,
   signInWithEmailAndPassword,
@@ -20,7 +25,22 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-export const db   = getFirestore(app, 'default');
+// オフライン永続キャッシュ（IndexedDB）を有効化。
+// 再訪問時はコレクション全件を読み直さず、前回同期以降の差分だけサーバーから取得する
+// （= 読み取り課金を大幅に削減）。全件をクライアントに保持するため検索・絞り込みは従来どおり。
+// 環境によっては永続キャッシュの初期化が失敗しうるため、失敗時は従来のキャッシュへ
+// フォールバックし、アプリ自体が起動不能（白画面）になるのを防ぐ。
+function createDb() {
+  try {
+    return initializeFirestore(app, {
+      localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+    }, 'default');
+  } catch (e) {
+    console.warn('[firebase] 永続キャッシュの初期化に失敗。通常キャッシュで継続します:', e);
+    return getFirestore(app, 'default');
+  }
+}
+export const db = createDb();
 export const auth = getAuth(app);
 
 setPersistence(auth, browserLocalPersistence).catch(() => {});

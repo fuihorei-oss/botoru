@@ -1,10 +1,10 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { buildSearchIndex, searchBottles } from './utils/search';
 import { castColor, getCastNames } from './utils/castColors';
-import { mergeBottleCsvs } from './utils/csvImport';
+import { mergeBottleCsvs, parseAmountsFromCsv } from './utils/csvImport';
 import {
   subscribeBottles, subscribeCasts,
-  upsertBottle, deleteBottle, batchUpsertBottles, batchDeleteBottles,
+  upsertBottle, deleteBottle, batchUpsertBottles, syncBottles,
   updateCasts, ensureStoreMigrated, setStore,
 } from './utils/firestore';
 import BottleCard from './components/BottleCard';
@@ -42,6 +42,8 @@ function GearIcon() {
 }
 
 export default function App({ store, role, userName, onChangeStore }) {
+  // 管理者のみ編集可。スタッフは閲覧専用。
+  const canEdit = role === 'admin';
   const [bottles, setBottles] = useState([]);
   const [casts, setCasts]     = useState([]);
   const [loading, setLoading] = useState(true);
@@ -66,17 +68,29 @@ export default function App({ store, role, userName, onChangeStore }) {
   const [editingCast, setEditingCast]   = useState(null);
   const [showDataMgr, setShowDataMgr]   = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
+  const [castSearch, setCastSearch] = useState('');
+
+  // Firestore のライブ購読は ref で保持し、一括インポート中などに
+  // 一時停止 → 再開できるようにする（停止中の書き込みは読み取り課金されない）。
+  const bottlesUnsubRef = useRef(null);
+  const castsUnsubRef = useRef(null);
+
+  const stopSubscriptions = useCallback(() => {
+    bottlesUnsubRef.current?.(); bottlesUnsubRef.current = null;
+    castsUnsubRef.current?.(); castsUnsubRef.current = null;
+  }, []);
+
+  const startSubscriptions = useCallback(() => {
+    stopSubscriptions(); // 二重購読を防ぐ
+    bottlesUnsubRef.current = subscribeBottles(data => { setBottles(data); setLoading(false); });
+    castsUnsubRef.current = subscribeCasts(setCasts);
+  }, [stopSubscriptions]);
 
   // Firestore subscriptions + 店舗データ移行
   useEffect(() => {
     setStore(store);
     setLoading(true);
-    let unsubBottles, unsubCasts;
-
-    const startSubscriptions = () => {
-      unsubBottles = subscribeBottles(data => { setBottles(data); setLoading(false); });
-      unsubCasts = subscribeCasts(setCasts);
-    };
+    let cancelled = false;
 
     const init = async () => {
       try {
@@ -91,12 +105,12 @@ export default function App({ store, role, userName, onChangeStore }) {
       } finally {
         setMigrating(false);
       }
-      startSubscriptions();
+      if (!cancelled) startSubscriptions();
     };
 
     init();
-    return () => { unsubBottles?.(); unsubCasts?.(); };
-  }, [store]);
+    return () => { cancelled = true; stopSubscriptions(); };
+  }, [store, startSubscriptions, stopSubscriptions]);
 
   const sorted = useMemo(() => {
     const arr = [...bottles];
@@ -130,6 +144,7 @@ export default function App({ store, role, userName, onChangeStore }) {
   }, [fuse, query, sorted, castFilter, neckFilter, dateFrom, dateTo]);
 
   async function handleSave(bottle) {
+    if (!canEdit) return;
     try {
       const isNew = !editBottle;
       const withMeta = {
@@ -146,22 +161,25 @@ export default function App({ store, role, userName, onChangeStore }) {
   }
 
   async function handleDelete(id) {
+    if (!canEdit) return;
     if (!window.confirm('このボトルを削除しますか？')) return;
     await deleteBottle(id);
     setShowForm(false);
     setEditBottle(null);
   }
 
-  function openAdd()        { setEditBottle(null);   setShowForm(true); }
+  function openAdd()        { if (!canEdit) return; setEditBottle(null);   setShowForm(true); }
   function openEdit(bottle) { setEditBottle(bottle); setShowForm(true); }
   function closeForm()      { setShowForm(false);    setEditBottle(null); }
 
   async function persistCasts(newCasts) {
+    if (!canEdit) return;
     setCasts(newCasts);
     await updateCasts(newCasts);
   }
 
   async function addCast() {
+    if (!canEdit) return;
     const name = newCastInput.trim();
     if (!name || casts.includes(name)) return;
     await persistCasts([...casts, name]);
@@ -169,6 +187,7 @@ export default function App({ store, role, userName, onChangeStore }) {
   }
 
   async function removeCast(name) {
+    if (!canEdit) return;
     await persistCasts(casts.filter(c => c !== name));
     const affected = bottles.filter(b => getCastNames(b).includes(name))
       .map(b => ({ ...b, castName: getCastNames(b).filter(n => n !== name) }));
@@ -177,6 +196,7 @@ export default function App({ store, role, userName, onChangeStore }) {
   }
 
   async function renameCast(original, newName) {
+    if (!canEdit) { setEditingCast(null); return; }
     const trimmed = newName.trim();
     if (!trimmed || trimmed === original || casts.includes(trimmed)) { setEditingCast(null); return; }
     await persistCasts(casts.map(c => c === original ? trimmed : c));
@@ -205,6 +225,7 @@ export default function App({ store, role, userName, onChangeStore }) {
   }
 
   async function renameNeck(original, newName) {
+    if (!canEdit) return;
     const trimmed = newName.trim();
     if (!trimmed || trimmed === original) return;
     const affected = bottles
@@ -225,16 +246,24 @@ export default function App({ store, role, userName, onChangeStore }) {
   }
 
   async function importData(e) {
+    if (!canEdit) return;
     const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = async ev => {
       try {
         const data = JSON.parse(ev.target.result);
-        if (!window.confirm(`${(data.bottles || []).length}本のデータをインポートします。現在のデータは上書きされます。よろしいですか？`)) return;
-        await batchDeleteBottles(bottles);
-        await batchUpsertBottles(data.bottles || []);
-        await updateCasts(data.casts || []);
+        const next = data.bottles || [];
+        if (!window.confirm(`${next.length}本のデータをインポートします。現在のデータは上書きされます。よろしいですか？`)) return;
+        // インポート中はライブ購読を止め、差分だけ書き込む（読み取り課金の急増を防止）
+        stopSubscriptions();
+        try {
+          const res = await syncBottles(next, bottles);
+          await updateCasts(data.casts || []);
+          alert(`インポート完了（更新 ${res.upserted} 本・削除 ${res.deleted} 本）`);
+        } finally {
+          startSubscriptions();
+        }
         setShowDataMgr(false);
       } catch {
         alert('ファイルの読み込みに失敗しました');
@@ -311,6 +340,7 @@ export default function App({ store, role, userName, onChangeStore }) {
   }
 
   async function importCSV(e) {
+    if (!canEdit) return;
     const files = [...e.target.files];
     if (files.length === 0) return;
     try {
@@ -338,15 +368,58 @@ export default function App({ store, role, userName, onChangeStore }) {
 
       const newCasts = [...castSet];
       if (!window.confirm(`CSV ${files.length}ファイルから${newBottles.length}本・キャスト${newCasts.length}名を取り込みます。現在のデータは全て上書きされます。よろしいですか？`)) return;
-      await batchDeleteBottles(bottles);
-      await batchUpsertBottles(newBottles);
-      await updateCasts(newCasts);
+      // インポート中はライブ購読を止め、差分だけ書き込む（読み取り課金の急増を防止）
+      stopSubscriptions();
+      let res;
+      try {
+        res = await syncBottles(newBottles, bottles);
+        await updateCasts(newCasts);
+      } finally {
+        startSubscriptions();
+      }
       setShowDataMgr(false);
-      alert(`${newBottles.length}本を取り込みました`);
+      alert(`${newBottles.length}本を取り込みました（更新 ${res.upserted} 本・削除 ${res.deleted} 本）`);
     } catch (err) {
       alert('CSVの読み込みに失敗しました: ' + err.message);
     } finally {
       e.target.value = '';
+    }
+  }
+
+  async function importAmountsCSV(e) {
+    if (!canEdit) return;
+    const file = e.target.files[0];
+    if (!file) return;
+    e.target.value = '';
+    try {
+      const text = await file.text();
+      const amounts = parseAmountsFromCsv(text);
+      if (amounts.length === 0) {
+        alert('残量データが見つかりませんでした。\n「残量」列を含むAirtableのCSVを選択してください。');
+        return;
+      }
+      // 残量がnullのボトルのみ対象。名称＋ネック名で照合
+      const toUpdate = [];
+      for (const { name, keepName, remainingAmount, remainingUnit } of amounts) {
+        if (!keepName) continue; // ネック名なしは対象外
+        const matches = bottles.filter(b =>
+          b.name === name &&
+          (b.keepName || '') === (keepName || '') &&
+          b.remainingAmount == null
+        );
+        for (const match of matches) {
+          toUpdate.push({ ...match, remainingAmount, remainingUnit, updatedAt: Date.now() });
+        }
+      }
+      if (toUpdate.length === 0) {
+        alert(`CSVから${amounts.length}件の残量を読み込みましたが、更新対象のボトルが見つかりませんでした。\n・既に残量が設定済みのボトルは対象外です\n・銘柄名・ネック名が完全一致するボトルのみ更新します`);
+        return;
+      }
+      if (!window.confirm(`${toUpdate.length}本のボトルに残量を補完します。（残量が未設定のもののみ）\nよろしいですか？`)) return;
+      await batchUpsertBottles(toUpdate);
+      alert(`${toUpdate.length}本の残量を更新しました。`);
+    } catch (err) {
+      alert('エラーが発生しました: ' + err.message);
     }
   }
 
@@ -364,7 +437,7 @@ export default function App({ store, role, userName, onChangeStore }) {
     function skipMigration() {
       localStorage.removeItem('cabaret_bottles'); localStorage.removeItem('cabaret_casts');
       setMigrating(false);
-      subscribeBottles(data => { setBottles(data); setLoading(false); }); subscribeCasts(setCasts);
+      startSubscriptions(); // 既存購読を張り直す（孤立リスナーを作らない）
     }
     return (
       <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#f5f5f7', padding: 32 }}>
@@ -510,13 +583,13 @@ export default function App({ store, role, userName, onChangeStore }) {
       )}
 
       {/* ネックビュー */}
-      {view === 'necks' && <NeckList bottles={bottles} onSelectNeck={handleSelectNeck} onRenameNeck={renameNeck} />}
+      {view === 'necks' && <NeckList bottles={bottles} onSelectNeck={handleSelectNeck} onRenameNeck={renameNeck} canEdit={canEdit} />}
 
       {/* キャストビュー */}
       {view === 'casts' && <CastList bottles={bottles} casts={casts} onSelectCast={handleSelectCast} />}
 
-      {/* FAB */}
-      {view === 'bottles' && (
+      {/* FAB（管理者のみ） */}
+      {view === 'bottles' && canEdit && (
         <button onClick={openAdd}
           style={{ position: 'fixed', bottom: 'calc(24px + var(--sab))', right: 20, width: 56, height: 56, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', cursor: 'pointer', zIndex: 40, background: 'linear-gradient(135deg, #7c3aed, #db2777)', boxShadow: '0 4px 20px rgba(124,58,237,0.4)', color: '#fff' }}>
           <PlusIcon />
@@ -524,17 +597,17 @@ export default function App({ store, role, userName, onChangeStore }) {
       )}
 
       {showAdminPanel && <AdminPanel onClose={() => setShowAdminPanel(false)} />}
-      {showForm && <BottleForm bottle={editBottle} casts={casts} onSave={handleSave} onDelete={handleDelete} onClose={closeForm} />}
+      {showForm && <BottleForm bottle={editBottle} casts={casts} onSave={handleSave} onDelete={handleDelete} onClose={closeForm} readOnly={!canEdit} />}
 
       {/* 絞り込みボトムシート */}
       {showFilter && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 45 }}>
-          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.3)' }} onClick={() => setShowFilter(false)} />
+          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.3)' }} onClick={() => { setShowFilter(false); setCastSearch(''); }} />
           <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: '#fff', borderRadius: '20px 20px 0 0', maxHeight: '75vh', display: 'flex', flexDirection: 'column', boxShadow: '0 -4px 24px rgba(0,0,0,0.1)', paddingBottom: 'var(--sab)' }}>
             {/* シートヘッダー */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 16px 12px', borderBottom: '1px solid #e5e7eb', flexShrink: 0 }}>
               <span style={{ fontWeight: 'bold', color: '#111827', fontSize: 16 }}>絞り込み</span>
-              <button onClick={() => setShowFilter(false)} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: '#9ca3af', lineHeight: 1 }}>×</button>
+              <button onClick={() => { setShowFilter(false); setCastSearch(''); }} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: '#9ca3af', lineHeight: 1 }}>×</button>
             </div>
 
             {/* スクロール可能なコンテンツ */}
@@ -543,24 +616,54 @@ export default function App({ store, role, userName, onChangeStore }) {
               {/* 指名の子 */}
               <div>
                 <p style={{ fontSize: 12, color: '#9ca3af', margin: '0 0 10px', fontWeight: 600 }}>指名の子</p>
+
+                {/* キャスト検索 */}
+                {casts.length > 6 && (
+                  <div style={{ position: 'relative', marginBottom: 10 }}>
+                    <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', pointerEvents: 'none' }}>
+                      <SearchIcon />
+                    </span>
+                    <input
+                      type="text"
+                      value={castSearch}
+                      onChange={e => setCastSearch(e.target.value)}
+                      placeholder="キャストを検索..."
+                      style={{ ...inp, width: '100%', paddingLeft: 36, paddingRight: castSearch ? 32 : 12, boxSizing: 'border-box', fontSize: 13 }}
+                    />
+                    {castSearch && (
+                      <button onClick={() => setCastSearch('')}
+                        style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#9ca3af', lineHeight: 1 }}>×</button>
+                    )}
+                  </div>
+                )}
+
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                  <button onClick={() => setCastFilter('')}
-                    style={{ padding: '6px 16px', borderRadius: 20, fontSize: 13, fontWeight: 'bold', cursor: 'pointer', border: 'none', background: !castFilter ? '#7c3aed' : '#f3f4f6', color: !castFilter ? '#fff' : '#6b7280' }}>
-                    すべて
-                  </button>
-                  {casts.map(name => {
-                    const cc = castColor(name); const isActive = castFilter === name;
-                    return (
-                      <button key={name} onClick={() => setCastFilter(isActive ? '' : name)}
-                        style={{ padding: '6px 16px', borderRadius: 20, fontSize: 13, fontWeight: 'bold', cursor: 'pointer', background: isActive ? cc : '#f3f4f6', color: isActive ? '#fff' : cc, border: `1px solid ${cc}40` }}>
-                        {name}
-                      </button>
-                    );
-                  })}
-                  <button onClick={() => { setShowFilter(false); setShowCastMgr(true); }}
-                    style={{ padding: '6px 16px', borderRadius: 20, fontSize: 13, cursor: 'pointer', background: '#f3f4f6', color: '#9ca3af', border: '1px solid #e5e7eb' }}>
-                    ＋ 管理
-                  </button>
+                  {!castSearch && (
+                    <button onClick={() => setCastFilter('')}
+                      style={{ padding: '6px 16px', borderRadius: 20, fontSize: 13, fontWeight: 'bold', cursor: 'pointer', border: 'none', background: !castFilter ? '#7c3aed' : '#f3f4f6', color: !castFilter ? '#fff' : '#6b7280' }}>
+                      すべて
+                    </button>
+                  )}
+                  {casts
+                    .filter(name => !castSearch || name.includes(castSearch))
+                    .map(name => {
+                      const cc = castColor(name); const isActive = castFilter === name;
+                      return (
+                        <button key={name} onClick={() => { setCastFilter(isActive ? '' : name); setCastSearch(''); }}
+                          style={{ padding: '6px 16px', borderRadius: 20, fontSize: 13, fontWeight: 'bold', cursor: 'pointer', background: isActive ? cc : '#f3f4f6', color: isActive ? '#fff' : cc, border: `1px solid ${cc}40` }}>
+                          {name}
+                        </button>
+                      );
+                    })}
+                  {castSearch && casts.filter(n => n.includes(castSearch)).length === 0 && (
+                    <span style={{ fontSize: 13, color: '#9ca3af', padding: '6px 4px' }}>見つかりません</span>
+                  )}
+                  {canEdit && !castSearch && (
+                    <button onClick={() => { setShowFilter(false); setCastSearch(''); setShowCastMgr(true); }}
+                      style={{ padding: '6px 16px', borderRadius: 20, fontSize: 13, cursor: 'pointer', background: '#f3f4f6', color: '#9ca3af', border: '1px solid #e5e7eb' }}>
+                      ＋ 管理
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -597,20 +700,31 @@ export default function App({ store, role, userName, onChangeStore }) {
               <button onClick={exportData} style={{ padding: '12px', borderRadius: 12, fontWeight: 'bold', fontSize: 14, color: '#fff', border: 'none', cursor: 'pointer', background: 'linear-gradient(135deg, #7c3aed, #db2777)' }}>
                 💾 バックアップをダウンロード（JSON）
               </button>
-              <label style={{ padding: '12px', borderRadius: 12, fontWeight: 'bold', fontSize: 14, textAlign: 'center', display: 'block', cursor: 'pointer', background: '#f9fafb', color: '#6b7280', border: '1px solid #e5e7eb' }}>
-                📂 バックアップから復元（JSON）
-                <input type="file" accept=".json" style={{ display: 'none' }} onChange={importData} />
-              </label>
+              {canEdit && (
+                <label style={{ padding: '12px', borderRadius: 12, fontWeight: 'bold', fontSize: 14, textAlign: 'center', display: 'block', cursor: 'pointer', background: '#f9fafb', color: '#6b7280', border: '1px solid #e5e7eb' }}>
+                  📂 バックアップから復元（JSON）
+                  <input type="file" accept=".json" style={{ display: 'none' }} onChange={importData} />
+                </label>
+              )}
               <div style={{ display: 'flex', gap: 8 }}>
                 <button onClick={exportCSV} style={{ flex: 1, padding: '12px', borderRadius: 12, fontWeight: 'bold', fontSize: 14, color: '#059669', border: '1px solid rgba(5,150,105,0.3)', cursor: 'pointer', background: 'rgba(5,150,105,0.06)' }}>
                   📊 CSVエクスポート
                 </button>
-                <label style={{ flex: 1, padding: '12px', borderRadius: 12, fontWeight: 'bold', fontSize: 14, textAlign: 'center', display: 'block', cursor: 'pointer', background: 'rgba(5,150,105,0.06)', color: '#059669', border: '1px solid rgba(5,150,105,0.3)' }}>
-                  📥 CSVインポート
-                  <input type="file" accept=".csv" multiple style={{ display: 'none' }} onChange={importCSV} />
-                </label>
+                {canEdit && (
+                  <label style={{ flex: 1, padding: '12px', borderRadius: 12, fontWeight: 'bold', fontSize: 14, textAlign: 'center', display: 'block', cursor: 'pointer', background: 'rgba(5,150,105,0.06)', color: '#059669', border: '1px solid rgba(5,150,105,0.3)' }}>
+                    📥 CSVインポート
+                    <input type="file" accept=".csv" multiple style={{ display: 'none' }} onChange={importCSV} />
+                  </label>
+                )}
               </div>
-              <p style={{ fontSize: 11, textAlign: 'center', color: '#d1d5db', margin: 0 }}>※ 復元すると現在のデータは上書きされます</p>
+              {canEdit && (
+                <label style={{ padding: '12px', borderRadius: 12, fontWeight: 'bold', fontSize: 14, textAlign: 'center', display: 'block', cursor: 'pointer', background: 'rgba(234,179,8,0.06)', color: '#b45309', border: '1px solid rgba(234,179,8,0.3)' }}>
+                  🔢 残量をCSVから補完（データなしのみ更新）
+                  <input type="file" accept=".csv" style={{ display: 'none' }} onChange={importAmountsCSV} />
+                </label>
+              )}
+              {canEdit && <p style={{ fontSize: 11, textAlign: 'center', color: '#d1d5db', margin: 0 }}>※ 復元すると現在のデータは上書きされます</p>}
+              {!canEdit && <p style={{ fontSize: 11, textAlign: 'center', color: '#9ca3af', margin: 0 }}>閲覧専用アカウントです（編集は管理者のみ）</p>}
               {role === 'admin' && (
                 <button onClick={() => { setShowDataMgr(false); setShowAdminPanel(true); }}
                   style={{ padding: '12px', borderRadius: 12, fontWeight: 'bold', fontSize: 14, textAlign: 'center', border: '1px solid rgba(124,58,237,0.3)', cursor: 'pointer', background: 'rgba(124,58,237,0.06)', color: '#7c3aed' }}>

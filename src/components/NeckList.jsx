@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 
-function NeckCard({ stat, onSelect, onRename }) {
+function NeckCard({ stat, onSelect, onRename, canEdit }) {
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(stat.name);
   const emptyCount = stat.bottles.filter(b => (b.remainingAmount ?? 700) === 0).length;
@@ -73,10 +73,12 @@ function NeckCard({ stat, onSelect, onRename }) {
           </div>
         </button>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-          <button onClick={startEdit}
-            style={{ padding: '4px 10px', borderRadius: 8, fontSize: 12, background: '#f3f4f6', color: '#6b7280', border: '1px solid #e5e7eb', cursor: 'pointer' }}>
-            変更
-          </button>
+          {canEdit && (
+            <button onClick={startEdit}
+              style={{ padding: '4px 10px', borderRadius: 8, fontSize: 12, background: '#f3f4f6', color: '#6b7280', border: '1px solid #e5e7eb', cursor: 'pointer' }}>
+              変更
+            </button>
+          )}
           <button onClick={onSelect}
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#d1d5db', fontSize: 18, lineHeight: 1, padding: '0 2px' }}>›</button>
         </div>
@@ -97,13 +99,27 @@ function NeckCard({ stat, onSelect, onRename }) {
               </span>
             )}
           </div>
+          {stat.castNames.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 6 }}>
+              {stat.castNames.slice(0, 4).map(c => (
+                <span key={c} style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: '#fdf4ff', color: '#7c3aed', border: '1px solid #e9d5ff' }}>
+                  💜 {c}
+                </span>
+              ))}
+              {stat.castNames.length > 4 && (
+                <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: '#fdf4ff', color: '#9ca3af' }}>
+                  他{stat.castNames.length - 4}名
+                </span>
+              )}
+            </div>
+          )}
         </button>
       )}
     </div>
   );
 }
 
-export default function NeckList({ bottles, onSelectNeck, onRenameNeck }) {
+export default function NeckList({ bottles, onSelectNeck, onRenameNeck, canEdit }) {
   const [neckQuery, setNeckQuery] = useState('');
 
   const neckStats = useMemo(() => {
@@ -111,14 +127,22 @@ export default function NeckList({ bottles, onSelectNeck, onRenameNeck }) {
     bottles.forEach(b => {
       const neck = (b.keepName || '').trim();
       if (!neck) return;
-      if (!map[neck]) map[neck] = { name: neck, bottles: [] };
+      if (!map[neck]) map[neck] = { name: neck, bottles: [], castNames: new Set() };
       map[neck].bottles.push(b);
+      const casts = Array.isArray(b.castName) ? b.castName : (b.castName ? [b.castName] : []);
+      casts.forEach(c => { if (c?.trim()) map[neck].castNames.add(c.trim()); });
     });
-    return Object.values(map).sort((a, b) => b.bottles.length - a.bottles.length);
+    return Object.values(map)
+      .map(s => ({ ...s, castNames: [...s.castNames] }))
+      .sort((a, b) => b.bottles.length - a.bottles.length);
   }, [bottles]);
 
-  const filtered = neckQuery.trim()
-    ? neckStats.filter(s => s.name.includes(neckQuery.trim()))
+  const q = neckQuery.trim().toLowerCase();
+  const filtered = q
+    ? neckStats.filter(s =>
+        s.name.toLowerCase().includes(q) ||
+        s.castNames.some(c => c.toLowerCase().includes(q))
+      )
     : neckStats;
 
   return (
@@ -145,6 +169,7 @@ export default function NeckList({ bottles, onSelectNeck, onRenameNeck }) {
               stat={stat}
               onSelect={() => onSelectNeck(stat.name)}
               onRename={onRenameNeck}
+              canEdit={canEdit}
             />
           ))
         )}

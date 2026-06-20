@@ -27,18 +27,22 @@ service cloud.firestore {
     }
 
     // 店舗ごとのボトル・設定（stores/{storeId}/...）
+    // 閲覧は承認済み全員、編集（作成・更新・削除）は管理者のみ。
     match /stores/{storeId}/{document=**} {
-      allow read, write: if isApproved();
+      allow read: if isApproved();
+      allow write: if isAdmin();
     }
 
     // 旧構成（移行元）。stores 配下へ移行するための読み取り用に残す。
     match /bottles/{bottleId} {
-      allow read, write: if isApproved();
+      allow read: if isApproved();
+      allow write: if isAdmin();
     }
 
     // 設定（旧構成）
     match /config/{docId} {
-      allow read, write: if isApproved();
+      allow read: if isApproved();
+      allow write: if isAdmin();
     }
 
     // ログ（書き込み：スタッフ以上、読み込み：管理者のみ）

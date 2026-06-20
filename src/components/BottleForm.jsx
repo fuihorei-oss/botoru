@@ -33,7 +33,7 @@ function normalizeCastName(bottle) {
   return [];
 }
 
-export default function BottleForm({ bottle, casts = [], onSave, onDelete, onClose }) {
+export default function BottleForm({ bottle, casts = [], onSave, onDelete, onClose, readOnly = false }) {
   const isEdit = !!bottle;
   const [showCastChips, setShowCastChips] = useState(false);
   const [castInput, setCastInput] = useState('');
@@ -65,6 +65,7 @@ export default function BottleForm({ bottle, casts = [], onSave, onDelete, onClo
   }
   function handleSubmit(e) {
     e.preventDefault();
+    if (readOnly) return;
     if (!form.name.trim()) return;
     onSave({ ...form, id: form.id || generateId(), updatedAt: Date.now() });
   }
@@ -85,11 +86,13 @@ export default function BottleForm({ bottle, casts = [], onSave, onDelete, onClo
       <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)' }} onClick={onClose} />
       <div style={{ position: 'relative', width: '100%', maxWidth: 512, borderRadius: '20px 20px 0 0', background: '#ffffff', boxShadow: '0 -4px 32px rgba(0,0,0,0.12)', overflow: 'hidden' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 20px 12px' }}>
-          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 'bold', color: '#111827' }}>{isEdit ? 'ボトル編集' : 'ボトル追加'}</h2>
+          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 'bold', color: '#111827' }}>{readOnly ? 'ボトル詳細' : isEdit ? 'ボトル編集' : 'ボトル追加'}</h2>
           <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 24, cursor: 'pointer', color: '#9ca3af', lineHeight: 1 }}>×</button>
         </div>
 
         <form onSubmit={handleSubmit} style={{ padding: '0 20px 20px', display: 'flex', flexDirection: 'column', gap: 16, maxHeight: '80vh', overflowY: 'auto' }}>
+
+          <fieldset disabled={readOnly} style={{ border: 0, margin: 0, padding: 0, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
 
           {/* 銘柄 */}
           <div>
@@ -100,7 +103,8 @@ export default function BottleForm({ bottle, casts = [], onSave, onDelete, onClo
           {/* ネック名 */}
           <div>
             <label style={{ display: 'block', fontSize: 12, color: '#6b7280', marginBottom: 4 }}>ネック名</label>
-            <input value={form.keepName} onChange={e => set('keepName', e.target.value)} placeholder="例：田中様ネック..." style={inp} />
+            <textarea value={form.keepName} onChange={e => set('keepName', e.target.value)} placeholder="例：田中様ネック..." rows={2}
+              style={{ ...inp, resize: 'none' }} />
           </div>
 
           {/* 保管状況 */}
@@ -164,7 +168,8 @@ export default function BottleForm({ bottle, casts = [], onSave, onDelete, onClo
           {/* お客さん名 */}
           <div>
             <label style={{ display: 'block', fontSize: 12, color: '#6b7280', marginBottom: 4 }}>お客さん名</label>
-            <input value={form.customerName} onChange={e => set('customerName', e.target.value)} placeholder="田中様" style={inp} />
+            <textarea value={form.customerName} onChange={e => set('customerName', e.target.value)} placeholder="田中様" rows={2}
+              style={{ ...inp, resize: 'none' }} />
           </div>
 
           {/* 指名の子 */}
@@ -232,19 +237,28 @@ export default function BottleForm({ bottle, casts = [], onSave, onDelete, onClo
               style={{ ...inp, resize: 'none' }} />
           </div>
 
+          </fieldset>
+
           {/* ボタン */}
-          <div style={{ display: 'flex', gap: 10, paddingTop: 4 }}>
-            {isEdit && (
-              <button type="button" onClick={() => onDelete(bottle.id)}
-                style={{ padding: '12px 16px', borderRadius: 12, color: '#ef4444', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)', cursor: 'pointer', fontSize: 14 }}>
-                削除
-              </button>
-            )}
-            <button type="submit"
-              style={{ flex: 1, padding: '12px', borderRadius: 12, fontWeight: 'bold', fontSize: 15, color: '#fff', border: 'none', cursor: 'pointer', background: 'linear-gradient(135deg, #7c3aed, #db2777)' }}>
-              {isEdit ? '保存' : '追加'}
+          {readOnly ? (
+            <button type="button" onClick={onClose}
+              style={{ padding: '12px', borderRadius: 12, fontWeight: 'bold', fontSize: 15, color: '#6b7280', border: '1px solid #e5e7eb', cursor: 'pointer', background: '#f9fafb', marginTop: 4 }}>
+              閉じる
             </button>
-          </div>
+          ) : (
+            <div style={{ display: 'flex', gap: 10, paddingTop: 4 }}>
+              {isEdit && (
+                <button type="button" onClick={() => onDelete(bottle.id)}
+                  style={{ padding: '12px 16px', borderRadius: 12, color: '#ef4444', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)', cursor: 'pointer', fontSize: 14 }}>
+                  削除
+                </button>
+              )}
+              <button type="submit"
+                style={{ flex: 1, padding: '12px', borderRadius: 12, fontWeight: 'bold', fontSize: 15, color: '#fff', border: 'none', cursor: 'pointer', background: 'linear-gradient(135deg, #7c3aed, #db2777)' }}>
+                {isEdit ? '保存' : '追加'}
+              </button>
+            </div>
+          )}
         </form>
       </div>
     </div>
