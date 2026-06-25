@@ -274,7 +274,7 @@ export default function App({ store, role, userName, onChangeStore }) {
   }
 
   function exportCSV() {
-    const headers = ['id', '銘柄', 'ネック名', 'お客様名', 'キャスト', 'メモ', '購入日', '残量', '残量単位', '未開封', '実物あり'];
+    const headers = ['id', '銘柄', 'ネック名', 'お客様名', 'キャスト', 'メモ', '購入日', '残量', '残量単位', '未開封', '実物あり', '作成者', '更新者'];
     const rows = bottles.map(b => {
       const casts = Array.isArray(b.castName) ? b.castName.join('|') : (b.castName || '');
       const esc = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
@@ -283,6 +283,7 @@ export default function App({ store, role, userName, onChangeStore }) {
         esc(casts), esc(b.notes || ''), esc(b.purchaseDate || ''),
         b.remainingAmount ?? '', esc(b.remainingUnit || ''),
         b.isUnopened ? '1' : '0', b.isPhysical ? '1' : '0',
+        esc(b.createdByName || ''), esc(b.updatedByName || ''),
       ].join(',');
     });
     const bom = '﻿';
@@ -320,6 +321,8 @@ export default function App({ store, role, userName, onChangeStore }) {
       const id = get('id') || crypto.randomUUID();
       const castRaw = get('キャスト');
       const castName = castRaw ? castRaw.split('|').map(s => s.trim()).filter(Boolean) : [];
+      const createdByName = get('作成者') || undefined;
+      const updatedByName = get('更新者') || undefined;
       return {
         id, name: get('銘柄'), keepName: get('ネック名'), customerName: get('お客様名'),
         castName, notes: get('メモ'), purchaseDate: get('購入日'),
@@ -327,6 +330,8 @@ export default function App({ store, role, userName, onChangeStore }) {
         remainingUnit: get('残量単位'),
         isUnopened: get('未開封') === '1',
         isPhysical: get('実物あり') === '1',
+        ...(createdByName ? { createdByName } : {}),
+        ...(updatedByName ? { updatedByName } : {}),
         updatedAt: Date.now(),
       };
     }).filter(b => b.name);
