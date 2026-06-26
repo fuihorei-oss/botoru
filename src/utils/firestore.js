@@ -228,7 +228,7 @@ export function subscribeUserData(uid, callback) {
 }
 
 export async function approveUser(uid) {
-  await updateDoc(doc(db, 'users', uid), { role: 'staff' });
+  await updateDoc(doc(db, 'users', uid), { role: 'viewer' });
 }
 
 export async function revokeUser(uid) {

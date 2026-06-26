@@ -42,8 +42,10 @@ function GearIcon() {
 }
 
 export default function App({ store, role, userName, onChangeStore }) {
-  // 管理者のみ編集可。スタッフは閲覧専用。
-  const canEdit = role === 'admin';
+  // 編集者以上: ボトル追加・編集・削除、キャスト一覧管理
+  // 管理者のみ: CSV/JSONインポート、ユーザー管理、店舗データ全削除
+  const canEdit   = role === 'admin' || role === 'editor';
+  const canManage = role === 'admin';
   const [bottles, setBottles] = useState([]);
   const [casts, setCasts]     = useState([]);
   const [loading, setLoading] = useState(true);
@@ -246,7 +248,7 @@ export default function App({ store, role, userName, onChangeStore }) {
   }
 
   async function importData(e) {
-    if (!canEdit) return;
+    if (!canManage) return;
     const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
@@ -345,7 +347,7 @@ export default function App({ store, role, userName, onChangeStore }) {
   }
 
   async function importCSV(e) {
-    if (!canEdit) return;
+    if (!canManage) return;
     const files = [...e.target.files];
     if (files.length === 0) return;
     try {
@@ -392,7 +394,7 @@ export default function App({ store, role, userName, onChangeStore }) {
   }
 
   async function importAmountsCSV(e) {
-    if (!canEdit) return;
+    if (!canManage) return;
     const file = e.target.files[0];
     if (!file) return;
     e.target.value = '';
@@ -701,11 +703,23 @@ export default function App({ store, role, userName, onChangeStore }) {
           <div style={sheet}>
             <div style={sheetHeader}><h2 style={sheetTitle}>データ管理</h2><button onClick={() => setShowDataMgr(false)} style={closeBtn}>×</button></div>
             <div style={{ padding: '0 20px 24px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <p style={{ fontSize: 12, color: '#9ca3af', margin: 0 }}>全{bottles.length}本 / キャスト{casts.length}名</p>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                <p style={{ fontSize: 12, color: '#9ca3af', margin: 0 }}>全{bottles.length}本 / キャスト{casts.length}名</p>
+                {(() => {
+                  const rl = canManage ? { label: '👑 管理者', color: '#7c3aed' }
+                    : canEdit ? { label: '✏️ 編集者', color: '#2563eb' }
+                    : { label: '👁 閲覧者', color: '#10b981' };
+                  return (
+                    <span style={{ fontSize: 11, fontWeight: 'bold', padding: '3px 10px', borderRadius: 20, background: rl.color + '14', color: rl.color, border: `1px solid ${rl.color}33`, flexShrink: 0 }}>
+                      {rl.label}
+                    </span>
+                  );
+                })()}
+              </div>
               <button onClick={exportData} style={{ padding: '12px', borderRadius: 12, fontWeight: 'bold', fontSize: 14, color: '#fff', border: 'none', cursor: 'pointer', background: 'linear-gradient(135deg, #7c3aed, #db2777)' }}>
                 💾 バックアップをダウンロード（JSON）
               </button>
-              {canEdit && (
+              {canManage && (
                 <label style={{ padding: '12px', borderRadius: 12, fontWeight: 'bold', fontSize: 14, textAlign: 'center', display: 'block', cursor: 'pointer', background: '#f9fafb', color: '#6b7280', border: '1px solid #e5e7eb' }}>
                   📂 バックアップから復元（JSON）
                   <input type="file" accept=".json" style={{ display: 'none' }} onChange={importData} />
@@ -715,22 +729,23 @@ export default function App({ store, role, userName, onChangeStore }) {
                 <button onClick={exportCSV} style={{ flex: 1, padding: '12px', borderRadius: 12, fontWeight: 'bold', fontSize: 14, color: '#059669', border: '1px solid rgba(5,150,105,0.3)', cursor: 'pointer', background: 'rgba(5,150,105,0.06)' }}>
                   📊 CSVエクスポート
                 </button>
-                {canEdit && (
+                {canManage && (
                   <label style={{ flex: 1, padding: '12px', borderRadius: 12, fontWeight: 'bold', fontSize: 14, textAlign: 'center', display: 'block', cursor: 'pointer', background: 'rgba(5,150,105,0.06)', color: '#059669', border: '1px solid rgba(5,150,105,0.3)' }}>
                     📥 CSVインポート
                     <input type="file" accept=".csv" multiple style={{ display: 'none' }} onChange={importCSV} />
                   </label>
                 )}
               </div>
-              {canEdit && (
+              {canManage && (
                 <label style={{ padding: '12px', borderRadius: 12, fontWeight: 'bold', fontSize: 14, textAlign: 'center', display: 'block', cursor: 'pointer', background: 'rgba(234,179,8,0.06)', color: '#b45309', border: '1px solid rgba(234,179,8,0.3)' }}>
                   🔢 残量をCSVから補完（データなしのみ更新）
                   <input type="file" accept=".csv" style={{ display: 'none' }} onChange={importAmountsCSV} />
                 </label>
               )}
-              {canEdit && <p style={{ fontSize: 11, textAlign: 'center', color: '#d1d5db', margin: 0 }}>※ 復元すると現在のデータは上書きされます</p>}
-              {!canEdit && <p style={{ fontSize: 11, textAlign: 'center', color: '#9ca3af', margin: 0 }}>閲覧専用アカウントです（編集は管理者のみ）</p>}
-              {role === 'admin' && (
+              {canManage && <p style={{ fontSize: 11, textAlign: 'center', color: '#d1d5db', margin: 0 }}>※ 復元すると現在のデータは上書きされます</p>}
+              {!canManage && !canEdit && <p style={{ fontSize: 11, textAlign: 'center', color: '#9ca3af', margin: 0 }}>閲覧専用アカウントです</p>}
+              {!canManage && canEdit && <p style={{ fontSize: 11, textAlign: 'center', color: '#9ca3af', margin: 0 }}>編集者アカウントです（インポート系は管理者のみ）</p>}
+              {canManage && (
                 <button onClick={() => { setShowDataMgr(false); setShowAdminPanel(true); }}
                   style={{ padding: '12px', borderRadius: 12, fontWeight: 'bold', fontSize: 14, textAlign: 'center', border: '1px solid rgba(124,58,237,0.3)', cursor: 'pointer', background: 'rgba(124,58,237,0.06)', color: '#7c3aed' }}>
                   👑 ユーザー管理

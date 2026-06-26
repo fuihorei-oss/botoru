@@ -8,13 +8,17 @@ export default function AdminPanel({ onClose }) {
   const [deleting, setDeleting] = useState('');
   const currentUid = auth.currentUser?.uid;
 
-  function handleToggleRole(u) {
-    const toAdmin = u.role !== 'admin';
+  function handleChangeRole(u, nextRole) {
+    if (u.role === nextRole) return;
     const who = u.name || '（名前未設定）';
-    const msg = toAdmin
-      ? `${who} を管理者にしますか？\n（ボトルの編集・削除など全機能が使えるようになります）`
-      : `${who} をスタッフ（閲覧専用）に変更しますか？`;
-    if (window.confirm(msg)) setUserRole(u.uid, toAdmin ? 'admin' : 'staff');
+    const labels = {
+      viewer: '閲覧者（閲覧・検索のみ）',
+      editor: '編集者（ボトル追加・編集・削除、キャスト管理）',
+      admin: '管理者（全機能・ユーザー管理・データインポート可）',
+    };
+    if (window.confirm(`${who} を ${labels[nextRole]} に変更しますか？`)) {
+      setUserRole(u.uid, nextRole);
+    }
   }
 
   useEffect(() => subscribeAllUsers(setUsers), []);
@@ -34,11 +38,13 @@ export default function AdminPanel({ onClose }) {
     }
   }
 
+  const APPROVED_ROLES = ['viewer', 'staff', 'editor', 'admin'];
   const pending = users.filter(u => u.role === 'pending');
-  const approved = users.filter(u => u.role === 'staff' || u.role === 'admin');
+  const approved = users.filter(u => APPROVED_ROLES.includes(u.role));
 
-  const roleLabel = { pending: '承認待ち', staff: 'スタッフ', admin: '管理者' };
-  const roleColor = { pending: '#f59e0b', staff: '#10b981', admin: '#7c3aed' };
+  // staff は旧ロール。閲覧者扱いだが視認のためラベルだけ「閲覧者(旧)」と表示
+  const roleLabel = { pending: '承認待ち', viewer: '閲覧者', staff: '閲覧者', editor: '編集者', admin: '管理者' };
+  const roleColor = { pending: '#f59e0b', viewer: '#10b981', staff: '#10b981', editor: '#2563eb', admin: '#7c3aed' };
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
@@ -82,7 +88,7 @@ export default function AdminPanel({ onClose }) {
                   <UserRow key={u.uid} user={u} roleLabel={roleLabel} roleColor={roleColor}
                     isSelf={isSelf}
                     onApprove={null}
-                    onToggleRole={isSelf ? null : () => handleToggleRole(u)}
+                    onChangeRole={isSelf ? null : (next) => handleChangeRole(u, next)}
                     onRevoke={(!isSelf && u.role !== 'admin') ? () => revokeUser(u.uid) : null}
                   />
                 );
@@ -117,43 +123,62 @@ export default function AdminPanel({ onClose }) {
   );
 }
 
-function UserRow({ user, roleLabel, roleColor, onApprove, onToggleRole, onRevoke, isSelf }) {
-  const toAdmin = user.role !== 'admin';
+function UserRow({ user, roleLabel, roleColor, onApprove, onChangeRole, onRevoke, isSelf }) {
+  // staff (旧) は viewer と同等に扱う
+  const currentRole = user.role === 'staff' ? 'viewer' : user.role;
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 12, background: '#f9fafb', border: '1px solid #e5e7eb', marginBottom: 8, flexWrap: 'wrap' }}>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {user.name || '（名前未設定）'}
-        </p>
-        <p style={{ margin: '2px 0 0', fontSize: 11, color: '#9ca3af', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {new Date(user.createdAt).toLocaleDateString('ja-JP')} 登録
-        </p>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '10px 12px', borderRadius: 12, background: '#f9fafb', border: '1px solid #e5e7eb', marginBottom: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {user.name || '（名前未設定）'}
+          </p>
+          <p style={{ margin: '2px 0 0', fontSize: 11, color: '#9ca3af', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {new Date(user.createdAt).toLocaleDateString('ja-JP')} 登録
+          </p>
+        </div>
+        <span style={{ fontSize: 11, fontWeight: 'bold', padding: '3px 8px', borderRadius: 20, background: roleColor[user.role] + '18', color: roleColor[user.role], flexShrink: 0 }}>
+          {roleLabel[user.role] || user.role}
+        </span>
+        {isSelf && (
+          <span style={{ fontSize: 11, color: '#9ca3af', flexShrink: 0 }}>あなた</span>
+        )}
+        {onApprove && (
+          <button onClick={onApprove}
+            style={{ padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 'bold', border: 'none', cursor: 'pointer', background: 'linear-gradient(135deg, #7c3aed, #db2777)', color: '#fff', flexShrink: 0 }}>
+            承認
+          </button>
+        )}
+        {onRevoke && (
+          <button onClick={onRevoke}
+            style={{ padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 'bold', border: '1px solid rgba(239,68,68,0.3)', cursor: 'pointer', background: 'rgba(239,68,68,0.06)', color: '#ef4444', flexShrink: 0 }}>
+            取消
+          </button>
+        )}
       </div>
-      <span style={{ fontSize: 11, fontWeight: 'bold', padding: '3px 8px', borderRadius: 20, background: roleColor[user.role] + '18', color: roleColor[user.role], flexShrink: 0 }}>
-        {roleLabel[user.role]}
-      </span>
-      {isSelf && (
-        <span style={{ fontSize: 11, color: '#9ca3af', flexShrink: 0 }}>あなた</span>
-      )}
-      {onApprove && (
-        <button onClick={onApprove}
-          style={{ padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 'bold', border: 'none', cursor: 'pointer', background: 'linear-gradient(135deg, #7c3aed, #db2777)', color: '#fff', flexShrink: 0 }}>
-          承認
-        </button>
-      )}
-      {onToggleRole && (
-        <button onClick={onToggleRole}
-          style={toAdmin
-            ? { padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 'bold', border: 'none', cursor: 'pointer', background: 'linear-gradient(135deg, #7c3aed, #db2777)', color: '#fff', flexShrink: 0 }
-            : { padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 'bold', border: '1px solid #e5e7eb', cursor: 'pointer', background: '#fff', color: '#6b7280', flexShrink: 0 }}>
-          {toAdmin ? '管理者にする' : 'スタッフにする'}
-        </button>
-      )}
-      {onRevoke && (
-        <button onClick={onRevoke}
-          style={{ padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 'bold', border: '1px solid rgba(239,68,68,0.3)', cursor: 'pointer', background: 'rgba(239,68,68,0.06)', color: '#ef4444', flexShrink: 0 }}>
-          取消
-        </button>
+      {onChangeRole && (
+        <div style={{ display: 'flex', gap: 6 }}>
+          {[
+            { value: 'viewer', label: '閲覧者' },
+            { value: 'editor', label: '編集者' },
+            { value: 'admin', label: '管理者' },
+          ].map(opt => {
+            const isActive = currentRole === opt.value;
+            const color = roleColor[opt.value];
+            return (
+              <button key={opt.value} onClick={() => onChangeRole(opt.value)} disabled={isActive}
+                style={{
+                  flex: 1, padding: '6px 8px', borderRadius: 8, fontSize: 11, fontWeight: 'bold',
+                  cursor: isActive ? 'default' : 'pointer',
+                  border: isActive ? `1px solid ${color}` : '1px solid #e5e7eb',
+                  background: isActive ? color + '14' : '#fff',
+                  color: isActive ? color : '#6b7280',
+                }}>
+                {opt.label}{isActive ? '✓' : ''}
+              </button>
+            );
+          })}
+        </div>
       )}
     </div>
   );
