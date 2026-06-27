@@ -12,10 +12,14 @@ import { getSavedStore, saveStore } from './utils/stores.js';
 
 function UpdateBanner() {
   const { needRefresh: [needRefresh], updateServiceWorker } = useRegisterSW({
-    // アプリを開いたままでも新しいバージョンを検知できるよう定期的に確認する
     onRegisteredSW(_swUrl, registration) {
       if (!registration) return;
+      // 60秒ごとに更新チェック
       setInterval(() => { registration.update(); }, 60 * 1000);
+      // フォアグラウンドに戻ったときも即チェック
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') registration.update();
+      });
     },
   });
   if (!needRefresh) return null;
@@ -67,25 +71,24 @@ function Root() {
     return () => { clearTimeout(timer); unsub(); };
   }, [user]);
 
-  if (user === undefined || (user && role === undefined)) return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f5f5f7' }}>
-      <div style={{ color: '#9ca3af', fontSize: 14 }}>読み込み中...</div>
-    </div>
-  );
+  const content = (() => {
+    if (user === undefined || (user && role === undefined)) return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f5f5f7' }}>
+        <div style={{ color: '#9ca3af', fontSize: 14 }}>読み込み中...</div>
+      </div>
+    );
+    if (!user) return <AuthScreen />;
+    if (role === 'pending' || role === null) return <PendingScreen />;
+    if (!store) return <StorePicker onSelect={chooseStore} userName={userName} />;
+    return (
+      <App key={store} store={store} role={role} userName={userName} onChangeStore={() => setStore(null)} />
+    );
+  })();
 
-  if (!user) return <AuthScreen />;
-  if (role === 'pending' || role === null) return <PendingScreen />;
-  if (!store) return <StorePicker onSelect={chooseStore} userName={userName} />;
   return (
     <>
       <UpdateBanner />
-      <App
-        key={store}
-        store={store}
-        role={role}
-        userName={userName}
-        onChangeStore={() => setStore(null)}
-      />
+      {content}
     </>
   );
 }
